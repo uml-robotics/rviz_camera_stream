@@ -55,17 +55,20 @@ class Camera;
 
 class QWidget;
 
-namespace rviz
-{
-
+namespace rviz{
 class RenderPanel;
 class PanelDockWidget;
+}
+
+namespace rviz_mod
+{
+using namespace rviz;
 
 /**
  * \class CameraDisplay
  *
  */
-class CameraDisplay: public Display, public Ogre::RenderTargetListener
+class CameraDisplay: public rviz::Display, public Ogre::RenderTargetListener
 {
 Q_OBJECT
 public:
@@ -165,6 +168,6 @@ protected:
   PanelDockWidget* panel_container_;
 };
 
-} // namespace rviz
+} // namespace rviz_mod
 
  #endif

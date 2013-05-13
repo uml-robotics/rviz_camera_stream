@@ -56,13 +56,7 @@
 #include <OGRE/OgreRoot.h>
 #include <OGRE/OgreRenderSystem.h>
 
-namespace rviz
-{
-
-static const std::string IMAGE_POS_BACKGROUND = "background";
-static const std::string IMAGE_POS_OVERLAY = "overlay";
-static const std::string IMAGE_POS_BOTH = "background & overlay";
-
+namespace rviz{
 bool validateFloats(const sensor_msgs::CameraInfo& msg)
 {
   bool valid = true;
@@ -72,6 +66,14 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
   valid = valid && validateFloats(msg.P);
   return valid;
 }
+
+}
+namespace rviz_mod
+{
+
+static const std::string IMAGE_POS_BACKGROUND = "background";
+static const std::string IMAGE_POS_OVERLAY = "overlay";
+static const std::string IMAGE_POS_BOTH = "background & overlay";
 
 CameraDisplay::CameraDisplay()
   : Display()
@@ -647,8 +649,8 @@ void CameraDisplay::reset()
   clear();
 }
 
-} // namespace rviz
+} // namespace rviz_mod
 
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_DECLARE_CLASS( rviz_custom_camera, Camera, rviz::CameraDisplay, rviz::Display)
+PLUGINLIB_DECLARE_CLASS( rviz_custom_camera, Camera, rviz_mod::CameraDisplay, rviz::Display)
