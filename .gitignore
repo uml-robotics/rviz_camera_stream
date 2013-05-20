@@ -1,12 +1,6 @@
 # Build files
 msg_gen/
 srv_gen/
-**/src/*/msg/
-**/src/*/srv/
-**/src/*msgs
-**/**/src/*/msg/
-**/**/src/*/srv/
-**/**/src/*msgs
 build/
 doc/
 bin/
@@ -41,20 +35,3 @@ docs/
 
 # Mac os
 .DS_Store
-
-# LTL
-ltlgen.smv
-ltlgen.ltl
-ltlgen.aut
-ltlgen.debug
-
-#.NET stuff
-obj/
-.suo
-.dll
-_ReSharper*/
-participant_ui/ParticipantUI.opensdf
-participant_ui/ParticipantUI.sdf
-participant_ui/ParticipantUI.suo
-participant_ui/ChatBox/ChatBox.suo
-*.svn*
