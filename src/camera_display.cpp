@@ -479,8 +479,8 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
 //  render_panel_->getRenderWindow()->writeContentsToTimestampedFile(
 //      "/home/muxa/ogreout/img", ".png");
   Ogre::PixelBox box;
-  render_panel_->getRenderWindow()->copyContentsToMemory(box);
-  video_publisher_->publishFrame(box);
+//  render_panel_->getRenderWindow()->copyContentsToMemory(box);
+//  video_publisher_->publishFrame(box);
 }
 
 void CameraDisplay::updateCamera()
