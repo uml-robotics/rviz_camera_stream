@@ -60,6 +60,10 @@ class RenderPanel;
 class PanelDockWidget;
 }
 
+namespace video_export{
+class  VideoPublisher;
+}
+
 namespace rviz_mod
 {
 using namespace rviz;
@@ -166,6 +170,8 @@ protected:
   bool force_render_;
 
   PanelDockWidget* panel_container_;
+
+  video_export::VideoPublisher* video_publisher_;
 };
 
 } // namespace rviz_mod

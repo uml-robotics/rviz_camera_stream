@@ -56,6 +56,32 @@
 #include <OGRE/OgreRoot.h>
 #include <OGRE/OgreRenderSystem.h>
 
+#include "image_transport/image_transport.h"
+namespace video_export
+{
+class VideoPublisher
+{
+private:
+  ros::NodeHandle nh_;
+  image_transport::ImageTransport it_;
+  image_transport::Publisher pub_;
+public:
+  VideoPublisher() :
+          it_(nh_),
+          pub_(it_.advertise("render_out",1))
+  {
+  }
+
+  void publishFrame(Ogre::PixelBox & pixel_box)
+  {
+    sensor_msgs::Image image;
+
+    pub_.publish(image);
+  }
+
+};
+}// namespace video_export
+
 namespace rviz{
 bool validateFloats(const sensor_msgs::CameraInfo& msg)
 {
@@ -86,6 +112,7 @@ CameraDisplay::CameraDisplay()
   , render_panel_( 0 )
   , force_render_(false)
   , panel_container_( 0 )
+  , video_publisher_( 0 )
 {
 }
 
@@ -113,10 +140,13 @@ CameraDisplay::~CameraDisplay()
   fg_scene_node_->getParentSceneNode()->removeAndDestroyChild(fg_scene_node_->getName());
 
   delete caminfo_tf_filter_;
+  delete video_publisher_;
 }
 
 void CameraDisplay::onInitialize()
 {
+  video_publisher_ = new video_export::VideoPublisher();
+
   caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(*vis_manager_->getTFClient(), "", 2, update_nh_);
 
   bg_scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
@@ -443,6 +473,14 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
   {
     setStatus(status_levels::Error, "Image", e.what());
   }
+
+
+  // [mm]: Publish the rendered window video stream
+//  render_panel_->getRenderWindow()->writeContentsToTimestampedFile(
+//      "/home/muxa/ogreout/img", ".png");
+  Ogre::PixelBox box;
+  render_panel_->getRenderWindow()->copyContentsToMemory(box);
+  video_publisher_->publishFrame(box);
 }
 
 void CameraDisplay::updateCamera()
