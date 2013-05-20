@@ -1,11 +1,11 @@
 <package>
-  <description brief="rviz_custom_camera">
+  <description brief="rviz_camera_stream">
 
   </description>
   <author>Mikhail Medvedev</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/rviz_custom_camera</url>
+  <url>http://ros.org/wiki/rviz_camera_stream</url>
   <depend package="interactive_markers"/>
   <depend package="visualization_msgs"/>
   <depend package="roscpp"/>

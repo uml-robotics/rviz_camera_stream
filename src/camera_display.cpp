@@ -691,4 +691,4 @@ void CameraDisplay::reset()
 
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_DECLARE_CLASS( rviz_custom_camera, Camera, rviz_mod::CameraDisplay, rviz::Display)
+PLUGINLIB_DECLARE_CLASS( rviz_camera_stream, Camera, rviz_mod::CameraDisplay, rviz::Display)
