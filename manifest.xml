@@ -1,5 +1,7 @@
 <package>
   <description brief="rviz_camera_stream">
+    Modified RViz camera plugin.
+    Allows to output the rviz display view as an Image topic.
 
   </description>
   <author>Mikhail Medvedev</author>
