@@ -99,7 +99,9 @@ public:
     uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
     uint datasize = width * height * pixelsize;
 
-    uchar *data = OGRE_ALLOC_T(uchar, datasize, Ogre::MEMCATEGORY_RENDERSYS);
+    // 1.05 multiplier is to avoid crash when the window is resized.
+    // There should be a better solution.
+    uchar *data = OGRE_ALLOC_T(uchar, datasize * 1.05, Ogre::MEMCATEGORY_RENDERSYS);
     Ogre::PixelBox pb(width, height, 1, pf, data);
     if (render_window)
     render_window->copyContentsToMemory(pb);
