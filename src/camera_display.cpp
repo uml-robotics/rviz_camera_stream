@@ -265,6 +265,9 @@ void CameraDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   bg_scene_node_->setVisible(false);
   fg_scene_node_->setVisible(false);
+
+  // [mm]: Publish the rendered window video stream
+  video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
 void CameraDisplay::setWrapperEnabled( bool enabled )
@@ -497,10 +500,6 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
   {
     setStatus(status_levels::Error, "Image", e.what());
   }
-
-
-  // [mm]: Publish the rendered window video stream
-  video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
 void CameraDisplay::updateCamera()
