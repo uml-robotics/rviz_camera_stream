@@ -179,7 +179,7 @@ void CameraDisplay::onInitialize()
   {
     static int count = 0;
     UniformStringStream ss;
-    ss << "CameraDisplayObject" << count++;
+    ss << "RvizModCameraDisplayObject" << count++;
 
     //background rectangle
     bg_screen_rect_ = new Ogre::Rectangle2D(true);
