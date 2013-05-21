@@ -93,25 +93,27 @@ public:
       return;
     }
     // RenderTarget::writeContentsToFile() used as example
+    int height = render_window->getHeight();
+    int width = render_window->getWidth();
     Ogre::PixelFormat pf = render_window->suggestPixelFormat();
-    uchar *data = OGRE_ALLOC_T(uchar, render_window->getWidth() *
-        render_window ->getHeight() * Ogre::PixelUtil::getNumElemBytes(pf),
-        Ogre::MEMCATEGORY_RENDERSYS);
-    Ogre::PixelBox pb(render_window->getWidth(), render_window->getHeight(), 1, pf, data);
+    uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
+    uint datasize = width * height * pixelsize;
+
+    uchar *data = OGRE_ALLOC_T(uchar, datasize, Ogre::MEMCATEGORY_RENDERSYS);
+    Ogre::PixelBox pb(width, height, 1, pf, data);
+    if (render_window)
     render_window->copyContentsToMemory(pb);
 
     sensor_msgs::Image image;
-
     image.header.stamp = ros::Time::now();
     image.header.seq = image_id_++;
-
-    image.height = render_window->getHeight();
-    image.width = render_window->getWidth();
-    image.step = 3 * image.width;
+    image.height = height;
+    image.width = width;
+    image.step = pixelsize * width;
     image.encoding = sensor_msgs::image_encodings::BGR8; // would break if pf changes
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
-    image.data.resize(image.step * image.height);
-    memcpy(&image.data[0], data, image.width * image.height * 3);
+    image.data.resize(image.step * height);
+    memcpy(&image.data[0], data, datasize);
     pub_.publish(image);
 
     OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
