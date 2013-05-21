@@ -112,7 +112,7 @@ public:
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    image.encoding = sensor_msgs::image_encodings::BGR8; // would break if pf changes
+    image.encoding = sensor_msgs::image_encodings::RGB8; // would break if pf changes
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(image.step * height);
     memcpy(&image.data[0], data, datasize);
