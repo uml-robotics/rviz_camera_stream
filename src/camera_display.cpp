@@ -70,9 +70,17 @@ private:
 public:
   VideoPublisher() :
           it_(nh_),
-          pub_(it_.advertise("render_out",1)),
           image_id_(0)
   {
+  }
+  void shutdown()
+  {
+    pub_.shutdown();
+  }
+
+  void advertise(std::string topic)
+  {
+    pub_ = it_.advertise(topic, 1);
   }
 
   void publishFrame(Ogre::RenderWindow * render_window)
@@ -427,6 +435,17 @@ void CameraDisplay::setTopic( const std::string& topic )
   propertyChanged(topic_property_);
 }
 
+void CameraDisplay::setOutTopic( const std::string& out_topic )
+{
+  video_publisher_->shutdown();
+
+  out_topic_ = out_topic;
+
+  video_publisher_->advertise(out_topic);
+
+  propertyChanged(out_topic_property_);
+}
+
 void CameraDisplay::setTransport(const std::string& transport)
 {
   transport_ = transport;
@@ -666,6 +685,11 @@ void CameraDisplay::createProperties()
   setPropertyHelpText(topic_property_, "sensor_msgs::Image topic to subscribe to.  The topic must be a well-formed <strong>camera</strong> topic, and in order to work properly must have a matching <strong>camera_info<strong> topic.");
   ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
   topic_prop->setMessageType(ros::message_traits::datatype<sensor_msgs::Image>());
+
+  out_topic_property_ = property_manager_->createProperty<StringProperty>( "Output Topic", property_prefix_, boost::bind( &CameraDisplay::getOutTopic, this ),
+                                                                         boost::bind( &CameraDisplay::setOutTopic, this, _1 ), parent_category_, this );
+  setPropertyHelpText(out_topic_property_, "sensor_msgs::Image topic to publish "
+      "this camera's rendered image to (would include overlays)");
 
   transport_property_ = property_manager_->createProperty<EditEnumProperty>("Transport Hint", property_prefix_, boost::bind(&CameraDisplay::getTransport, this),
                                                                             boost::bind(&CameraDisplay::setTransport, this, _1), parent_category_, this);

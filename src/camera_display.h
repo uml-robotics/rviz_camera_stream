@@ -87,6 +87,9 @@ public:
   const std::string& getTopic() { return topic_; }
   void setTopic(const std::string& topic);
 
+  const std::string& getOutTopic() { return out_topic_; }
+  void setOutTopic(const std::string& out_topic);
+
   const std::string& getTransport() { return transport_; }
   void setTransport(const std::string& transport);
 
@@ -145,6 +148,7 @@ protected:
   float alpha_;
   float zoom_;
   std::string topic_;
+  std::string out_topic_;
   std::string transport_;
   std::string image_position_;
 
@@ -153,6 +157,7 @@ protected:
 
   FloatPropertyWPtr alpha_property_;
   ROSTopicStringPropertyWPtr topic_property_;
+  StringPropertyWPtr out_topic_property_;
   EditEnumPropertyWPtr transport_property_;
   EditEnumPropertyWPtr image_position_property_;
   FloatPropertyWPtr zoom_property_;
