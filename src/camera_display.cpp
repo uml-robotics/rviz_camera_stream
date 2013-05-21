@@ -441,7 +441,10 @@ void CameraDisplay::setOutTopic( const std::string& out_topic )
 
   out_topic_ = out_topic;
 
-  video_publisher_->advertise(out_topic);
+  if (out_topic_ != "")
+  {
+    video_publisher_->advertise(out_topic);
+  }
 
   propertyChanged(out_topic_property_);
 }
