@@ -75,7 +75,10 @@ public:
   }
   void shutdown()
   {
-    pub_.shutdown();
+    if (pub_.getTopic() != "")
+    {
+      pub_.shutdown();
+    }
   }
 
   void advertise(std::string topic)
@@ -85,6 +88,10 @@ public:
 
   void publishFrame(Ogre::RenderWindow * render_window)
   {
+    if (pub_.getTopic() == "")
+    {
+      return;
+    }
     // RenderTarget::writeContentsToFile() used as example
     Ogre::PixelFormat pf = render_window->suggestPixelFormat();
     uchar *data = OGRE_ALLOC_T(uchar, render_window->getWidth() *
