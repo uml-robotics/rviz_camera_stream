@@ -56,7 +56,8 @@
 #include <OGRE/OgreRoot.h>
 #include <OGRE/OgreRenderSystem.h>
 
-#include "image_transport/image_transport.h"
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.h>
 namespace video_export
 {
 class VideoPublisher
@@ -65,18 +66,43 @@ private:
   ros::NodeHandle nh_;
   image_transport::ImageTransport it_;
   image_transport::Publisher pub_;
+  uint image_id_;
 public:
   VideoPublisher() :
           it_(nh_),
-          pub_(it_.advertise("render_out",1))
+          pub_(it_.advertise("render_out",1)),
+          image_id_(0)
   {
   }
 
-  void publishFrame(Ogre::PixelBox & pixel_box)
+  void publishFrame(Ogre::RenderWindow * render_window)
   {
+    render_window->writeContentsToTimestampedFile("/home/muxa/ogreout/img", ".png");
+
+    // RenderTarget::writeContentsToFile() used as example
+    Ogre::PixelFormat pf = render_window->suggestPixelFormat();
+    ROS_INFO_STREAM(pf);
+    uchar *data = OGRE_ALLOC_T(uchar, render_window->getWidth() *
+        render_window ->getHeight() * Ogre::PixelUtil::getNumElemBytes(pf),
+        Ogre::MEMCATEGORY_RENDERSYS);
+    Ogre::PixelBox pb(render_window->getWidth(), render_window->getHeight(), 1, pf, data);
+    render_window->copyContentsToMemory(pb);
+
     sensor_msgs::Image image;
 
+    image.header.frame_id = "rviz_render"; // [mm]: todo Different frames
+    image.header.stamp = ros::Time::now();
+    image.header.seq = image_id_++;
+
+    image.height = render_window->getHeight();
+    image.width = render_window->getWidth();
+    image.step = 3 * image.width;
+    image.encoding=sensor_msgs::image_encodings::BGR8;
+    image.data.resize(image.step * image.height);
+    memcpy(&image.data[0], data, image.width * image.height * 3);
     pub_.publish(image);
+
+    OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
   }
 
 };
@@ -476,11 +502,7 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
 
 
   // [mm]: Publish the rendered window video stream
-//  render_panel_->getRenderWindow()->writeContentsToTimestampedFile(
-//      "/home/muxa/ogreout/img", ".png");
-  Ogre::PixelBox box;
-//  render_panel_->getRenderWindow()->copyContentsToMemory(box);
-//  video_publisher_->publishFrame(box);
+  video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
 void CameraDisplay::updateCamera()
