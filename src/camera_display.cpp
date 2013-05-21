@@ -77,11 +77,8 @@ public:
 
   void publishFrame(Ogre::RenderWindow * render_window)
   {
-    render_window->writeContentsToTimestampedFile("/home/muxa/ogreout/img", ".png");
-
     // RenderTarget::writeContentsToFile() used as example
     Ogre::PixelFormat pf = render_window->suggestPixelFormat();
-    ROS_INFO_STREAM(pf);
     uchar *data = OGRE_ALLOC_T(uchar, render_window->getWidth() *
         render_window ->getHeight() * Ogre::PixelUtil::getNumElemBytes(pf),
         Ogre::MEMCATEGORY_RENDERSYS);
@@ -97,7 +94,8 @@ public:
     image.height = render_window->getHeight();
     image.width = render_window->getWidth();
     image.step = 3 * image.width;
-    image.encoding=sensor_msgs::image_encodings::BGR8;
+    image.encoding = sensor_msgs::image_encodings::BGR8; // would break if pf changes
+    image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(image.step * image.height);
     memcpy(&image.data[0], data, image.width * image.height * 3);
     pub_.publish(image);
