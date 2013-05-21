@@ -95,7 +95,6 @@ public:
 
     sensor_msgs::Image image;
 
-    image.header.frame_id = "rviz_render"; // [mm]: todo Different frames
     image.header.stamp = ros::Time::now();
     image.header.seq = image_id_++;
 
