@@ -2,7 +2,8 @@
 
   <class name="rviz_camera_stream/Camera" type="rviz_mod::CameraDisplay" base_class_type="rviz::Display">
     <description>
-      Displays an image from a camera, with the visualized world rendered behind it.  &lt;a href="http://www.ros.org/wiki/rviz/DisplayTypes/Camera"&gt;More Information&lt;/a&gt;.
+      Same as standard RViz camera, with addition of the ability to
+      publish the rendered image to the Image topic.
     </description>
   </class>
 
