@@ -283,7 +283,16 @@ void CameraDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
   bg_scene_node_->setVisible(false);
   fg_scene_node_->setVisible(false);
 
-  // [mm]: Publish the rendered window video stream
+  // Hack around and issue that manifests for certain window widths.
+  // setSizeIncrement does not work on X
+  if ((render_panel_->getRenderWindow()->getWidth() / 2) % 2 == 1)
+  {
+    render_panel_->setFixedWidth(render_panel_->width() + 2);
+  }
+  render_panel_->setMaximumWidth(QWIDGETSIZE_MAX);
+  render_panel_->setMinimumWidth(0);
+
+  // Publish the rendered window video stream
   video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
