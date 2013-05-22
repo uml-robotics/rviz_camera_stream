@@ -103,7 +103,6 @@ public:
     // There should be a better solution.
     uchar *data = OGRE_ALLOC_T(uchar, datasize * 1.05, Ogre::MEMCATEGORY_RENDERSYS);
     Ogre::PixelBox pb(width, height, 1, pf, data);
-    if (render_window)
     render_window->copyContentsToMemory(pb);
 
     sensor_msgs::Image image;
@@ -114,7 +113,7 @@ public:
     image.step = pixelsize * width;
     image.encoding = sensor_msgs::image_encodings::RGB8; // would break if pf changes
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
-    image.data.resize(image.step * height);
+    image.data.resize(datasize);
     memcpy(&image.data[0], data, datasize);
     pub_.publish(image);
 
