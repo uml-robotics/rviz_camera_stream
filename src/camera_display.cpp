@@ -28,16 +28,22 @@
  */
 
 #include "camera_display.h"
-#include "rviz/visualization_manager.h"
-#include "rviz/render_panel.h"
-#include "rviz/properties/property.h"
-#include "rviz/properties/property_manager.h"
-#include "rviz/window_manager_interface.h"
+
+
+#include "rviz/bit_allocator.h"
+#include "rviz/display_context.h"
 #include "rviz/frame_manager.h"
-#include "rviz/validate_floats.h"
-#include "rviz/panel_dock_widget.h"
-#include "rviz/display_wrapper.h"
+#include "rviz/load_resource.h"
+#include "rviz/ogre_helpers/axes.h"
+#include "rviz/properties/display_group_visibility_property.h"
+#include "rviz/properties/enum_property.h"
+#include "rviz/properties/float_property.h"
+#include "rviz/properties/int_property.h"
+#include "rviz/properties/property.h"
+#include "rviz/properties/ros_topic_property.h"
+#include "rviz/render_panel.h"
 #include "rviz/uniform_string_stream.h"
+#include "rviz/validate_floats.h"
 
 #include <tf/transform_listener.h>
 
@@ -57,6 +63,7 @@
 #include <OGRE/OgreRenderSystem.h>
 
 #include <image_transport/image_transport.h>
+#include <image_transport/camera_common.h>
 #include <sensor_msgs/image_encodings.h>
 namespace video_export
 {
@@ -149,46 +156,44 @@ CameraDisplay::CameraDisplay()
   , image_position_(IMAGE_POS_BOTH)
   , caminfo_tf_filter_( 0 )
   , new_caminfo_(false)
-  , texture_(update_nh_)
+  // , texture_(update_nh_)
   , render_panel_( 0 )
   , force_render_(false)
-  , panel_container_( 0 )
   , video_publisher_( 0 )
 {
 }
 
 CameraDisplay::~CameraDisplay()
 {
-  unsubscribe();
-  caminfo_tf_filter_->clear();
-
-  if( render_panel_ )
+  if ( initialized() )
   {
-    if( panel_container_ )
-    {
-      delete panel_container_;
-    }
-    else
-    {
-      delete render_panel_;
-    }
+    render_panel_->getRenderWindow()->removeListener( this );
+
+    unsubscribe();
+    caminfo_tf_filter_->clear();
+
+
+    //workaround. delete results in a later crash
+    render_panel_->hide();
+    //delete render_panel_;
+
+    delete bg_screen_rect_;
+    delete fg_screen_rect_;
+
+    bg_scene_node_->getParentSceneNode()->removeAndDestroyChild( bg_scene_node_->getName() );
+    fg_scene_node_->getParentSceneNode()->removeAndDestroyChild( fg_scene_node_->getName() );
+
+    delete caminfo_tf_filter_;
+
+    context_->visibilityBits()->freeBits(vis_bit_);
   }
-
-  delete bg_screen_rect_;
-  delete fg_screen_rect_;
-
-  bg_scene_node_->getParentSceneNode()->removeAndDestroyChild(bg_scene_node_->getName());
-  fg_scene_node_->getParentSceneNode()->removeAndDestroyChild(fg_scene_node_->getName());
-
-  delete caminfo_tf_filter_;
-  delete video_publisher_;
 }
 
 void CameraDisplay::onInitialize()
 {
   video_publisher_ = new video_export::VideoPublisher();
 
-  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(*vis_manager_->getTFClient(), "", 2, update_nh_);
+  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(*context_->getTFClient(), "", 2, update_nh_);
 
   bg_scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
   fg_scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
@@ -250,26 +255,28 @@ void CameraDisplay::onInitialize()
   render_panel_->getRenderWindow()->setAutoUpdated(false);
   render_panel_->getRenderWindow()->setActive( false );
   render_panel_->resize( 640, 480 );
-  render_panel_->initialize(vis_manager_->getSceneManager(), vis_manager_);
+  render_panel_->initialize(context_->getSceneManager(), context_);
 
-  WindowManagerInterface* wm = vis_manager_->getWindowManager();
-  if( wm )
-  {
-    panel_container_ = wm->addPane(name_, render_panel_);
-  }
+  setAssociatedWidget(render_panel_);
+
   render_panel_->setAutoRender(false);
   render_panel_->setOverlaysEnabled(false);
   render_panel_->getCamera()->setNearClipDistance( 0.01f );
 
   caminfo_tf_filter_->connectInput(caminfo_sub_);
   caminfo_tf_filter_->registerCallback(boost::bind(&CameraDisplay::caminfoCallback, this, _1));
-  vis_manager_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
+  // context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
 
-  if( panel_container_ )
-  {
-    // TODO: wouldn't it be better to connect this straight to the wrapper?
-    connect( panel_container_, SIGNAL( visibilityChanged( bool ) ), this, SLOT( setWrapperEnabled( bool )));
-  }
+  vis_bit_ = context_->visibilityBits()->allocBit();
+  render_panel_->getViewport()->setVisibilityMask( vis_bit_ );
+
+  visibility_property_ = new rviz::DisplayGroupVisibilityProperty(
+      vis_bit_, context_->getRootDisplayGroup(), this, "Visibility", true,
+      "Changes the visibility of other Displays in the camera view.");
+
+  visibility_property_->setIcon( loadPixmap("package://rviz/icons/visibility.svg",true) );
+
+  this->addChild( visibility_property_, 0 );
 }
 
 void CameraDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
@@ -296,53 +303,16 @@ void CameraDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
   video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
-void CameraDisplay::setWrapperEnabled( bool enabled )
-{
-  // Have to use the DisplayWrapper disable function so the checkbox
-  // gets checked or unchecked, since it owns the "enabled" property.
-  DisplayWrapper* wrapper = vis_manager_->getDisplayWrapper( this );
-  if( wrapper != NULL )
-  {
-    wrapper->setEnabled( enabled );
-  }
-}
-
 void CameraDisplay::onEnable()
 {
   subscribe();
-  if( render_panel_->parentWidget() == 0 )
-  {
-    render_panel_->show();
-  }
-  else
-  {
-    panel_container_->show();
-  }
-
   render_panel_->getRenderWindow()->setActive(true);
 }
 
 void CameraDisplay::onDisable()
 {
   render_panel_->getRenderWindow()->setActive(false);
-
-  if( render_panel_->parentWidget() == 0 )
-  {
-    if( render_panel_->isVisible() )
-    {
-      render_panel_->hide();
-    }
-  }
-  else
-  {
-    if( panel_container_->isVisible() )
-    {
-      panel_container_->hide();
-    }
-  }
-
   unsubscribe();
-
   clear();
 }
 
@@ -353,41 +323,28 @@ void CameraDisplay::subscribe()
     return;
   }
 
-  try
-  {
-    texture_.setTopic(topic_);
-    setStatus( status_levels::Ok, "Topic", "OK" );
-  }
-  catch( ros::Exception& e )
-  {
-    setStatus( status_levels::Error, "Topic", std::string("Error subscribing: ") + e.what() );
-  }
+  // std::string target_frame = fixed_frame_.toStdString();
+  // ImageDisplayBase::enableTFFilter(target_frame);
 
-  // parse out the namespace from the topic so we can subscribe to the caminfo
-  std::string caminfo_topic = "camera_info";
-  size_t pos = topic_.rfind('/');
-  if (pos != std::string::npos)
-  {
-    std::string ns = topic_;
-    ns.erase(pos);
+  // ImageDisplayBase::subscribe();
 
-    caminfo_topic = ns + "/" + caminfo_topic;
-  }
+  std::string topic = topic_property_->getTopicStd();
+  std::string caminfo_topic = image_transport::getCameraInfoTopic(topic_property_->getTopicStd());
 
   try
   {
-    caminfo_sub_.subscribe(update_nh_, caminfo_topic, 1);
-    setStatus( status_levels::Ok, "Camera Info Topic", "OK" );
+    caminfo_sub_.subscribe( update_nh_, caminfo_topic, 1 );
+    setStatus( StatusProperty::Ok, "Camera Info", "OK" );
   }
   catch( ros::Exception& e )
   {
-    setStatus( status_levels::Error, "Camera Info Topic", std::string("Error subscribing: ") + e.what() );
+    setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
   }
 }
 
 void CameraDisplay::unsubscribe()
 {
-  texture_.setTopic("");
+  // texture_.setTopic("");
   caminfo_sub_.unsubscribe();
 }
 
@@ -407,9 +364,8 @@ void CameraDisplay::setAlpha( float alpha )
     fg_material_->setDiffuse(Ogre::ColourValue(0.0f, 1.0f, 1.0f, alpha_));
   }
 
-  propertyChanged(alpha_property_);
   force_render_ = true;
-  causeRender();
+  context_->queueRender();
 }
 
 void CameraDisplay::setZoom( float zoom )
@@ -420,10 +376,9 @@ void CameraDisplay::setZoom( float zoom )
   }
   zoom_ = zoom;
 
-  propertyChanged(zoom_property_);
 
   force_render_ = true;
-  causeRender();
+  context_->queueRender();
 }
 
 void CameraDisplay::setQueueSize( int size )
@@ -432,7 +387,6 @@ void CameraDisplay::setQueueSize( int size )
   {
     texture_.setQueueSize( (uint32_t) size );
     caminfo_tf_filter_->setQueueSize( (uint32_t) size );
-    propertyChanged( queue_size_property_ );
   }
 }
 
@@ -450,7 +404,6 @@ void CameraDisplay::setTopic( const std::string& topic )
 
   subscribe();
 
-  propertyChanged(topic_property_);
 }
 
 void CameraDisplay::setOutTopic( const std::string& out_topic )
@@ -464,7 +417,6 @@ void CameraDisplay::setOutTopic( const std::string& out_topic )
     video_publisher_->advertise(out_topic);
   }
 
-  propertyChanged(out_topic_property_);
 }
 
 void CameraDisplay::setTransport(const std::string& transport)
@@ -473,24 +425,22 @@ void CameraDisplay::setTransport(const std::string& transport)
 
   texture_.setTransportType(transport);
 
-  propertyChanged(transport_property_);
 }
 
 void CameraDisplay::setImagePosition(const std::string& image_position)
 {
   image_position_ = image_position;
 
-  propertyChanged(image_position_property_);
 
   force_render_ = true;
-  causeRender();
+  context_->queueRender();
 }
 
 void CameraDisplay::clear()
 {
   texture_.clear();
   force_render_ = true;
-  causeRender();
+  context_->queueRender();
 
   new_caminfo_ = false;
   current_caminfo_.reset();
@@ -567,7 +517,7 @@ void CameraDisplay::updateCamera()
   Ogre::Vector3 position;
   Ogre::Quaternion orientation;
   //uses the latest TF info to make sure 3D rendered view is up to date with rendered robot pose
-  vis_manager_->getFrameManager()->getTransform(image->header.frame_id, ros::Time(0), position, orientation);
+  context_->getFrameManager()->getTransform(image->header.frame_id, ros::Time(0), position, orientation);
 
   // convert vision (Z-forward) frame to ogre frame (Z-out)
   orientation = orientation * Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
@@ -686,12 +636,12 @@ void CameraDisplay::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg
   new_caminfo_ = true;
 }
 
-void CameraDisplay::onTransportEnumOptions(V_string& choices)
+void CameraDisplay::onTransportEnumOptions(QString& choices)
 {
   texture_.getAvailableTransportTypes(choices);
 }
 
-void CameraDisplay::onImagePositionEnumOptions(V_string& choices)
+void CameraDisplay::onImagePositionEnumOptions(QString& choices)
 {
   choices.clear();
   choices.push_back(IMAGE_POS_BACKGROUND);
@@ -699,49 +649,10 @@ void CameraDisplay::onImagePositionEnumOptions(V_string& choices)
   choices.push_back(IMAGE_POS_BOTH);
 }
 
-void CameraDisplay::createProperties()
-{
-  topic_property_ = property_manager_->createProperty<ROSTopicStringProperty>( "Image Topic", property_prefix_, boost::bind( &CameraDisplay::getTopic, this ),
-                                                                         boost::bind( &CameraDisplay::setTopic, this, _1 ), parent_category_, this );
-  setPropertyHelpText(topic_property_, "sensor_msgs::Image topic to subscribe to.  The topic must be a well-formed <strong>camera</strong> topic, and in order to work properly must have a matching <strong>camera_info<strong> topic.");
-  ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(ros::message_traits::datatype<sensor_msgs::Image>());
-
-  out_topic_property_ = property_manager_->createProperty<StringProperty>( "Output Topic", property_prefix_, boost::bind( &CameraDisplay::getOutTopic, this ),
-                                                                         boost::bind( &CameraDisplay::setOutTopic, this, _1 ), parent_category_, this );
-  setPropertyHelpText(out_topic_property_, "sensor_msgs::Image topic to publish "
-      "this camera's rendered image to (would include overlays)");
-
-  transport_property_ = property_manager_->createProperty<EditEnumProperty>("Transport Hint", property_prefix_, boost::bind(&CameraDisplay::getTransport, this),
-                                                                            boost::bind(&CameraDisplay::setTransport, this, _1), parent_category_, this);
-  EditEnumPropertyPtr transport_prop = transport_property_.lock();
-  transport_prop->setOptionCallback(boost::bind(&CameraDisplay::onTransportEnumOptions, this, _1));
-
-  image_position_property_ = property_manager_->createProperty<EditEnumProperty>("Image Rendering", property_prefix_, boost::bind(&CameraDisplay::getImagePosition, this),
-                                                                            boost::bind(&CameraDisplay::setImagePosition, this, _1), parent_category_, this);
-  setPropertyHelpText(image_position_property_, "Render the image behind all other geometry or overlay it on top.");
-  EditEnumPropertyPtr ip_prop = image_position_property_.lock();
-  ip_prop->setOptionCallback(boost::bind(&CameraDisplay::onImagePositionEnumOptions, this, _1));
-
-  alpha_property_ = property_manager_->createProperty<FloatProperty>( "Overlay Alpha", property_prefix_, boost::bind( &CameraDisplay::getAlpha, this ),
-                                                                      boost::bind( &CameraDisplay::setAlpha, this, _1 ), parent_category_, this );
-  setPropertyHelpText(alpha_property_, "The amount of transparency to apply to the camera image when rendered as overlay.");
-
-  zoom_property_ = property_manager_->createProperty<FloatProperty>("Zoom Factor", property_prefix_, boost::bind(&CameraDisplay::getZoom, this),
-                                                                      boost::bind( &CameraDisplay::setZoom, this, _1), parent_category_, this);
-  setPropertyHelpText(image_position_property_, "Set a zoom factor below 1 to see a larger part of the world, a factor above 1 to magnify the image.");
-
-  queue_size_property_ = property_manager_->createProperty<IntProperty>( "Queue Size", property_prefix_,
-                                                                         boost::bind( &CameraDisplay::getQueueSize, this ),
-                                                                         boost::bind( &CameraDisplay::setQueueSize, this, _1 ),
-                                                                         parent_category_, this );
-  setPropertyHelpText( queue_size_property_, "Advanced: set the size of the incoming message queue.  Increasing this is useful if your incoming TF data is delayed significantly from your camera data, but it can greatly increase memory usage if the messages are big." );
-}
-
 void CameraDisplay::fixedFrameChanged()
 {
   caminfo_tf_filter_->setTargetFrame(fixed_frame_);
-  texture_.setFrame(fixed_frame_, vis_manager_->getTFClient());
+  texture_.setFrame(fixed_frame_, context_->getTFClient());
 }
 
 void CameraDisplay::reset()

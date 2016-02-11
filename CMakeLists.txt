@@ -39,8 +39,7 @@ add_library(rviz_camera_stream
   ${MOC_FILES}
 )
 
-
 target_link_libraries(rviz_camera_stream
-  ${QT_LIBRARIES}
   ${catkin_LIBRARIES}
+  ${QT_LIBRARIES}
 )

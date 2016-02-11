@@ -36,7 +36,6 @@
 
 #include "rviz/display.h"
 #include "rviz/render_panel.h"
-#include "rviz/properties/forwards.h"
 #include "rviz/image/ros_image_texture.h"
 
 #include <sensor_msgs/CameraInfo.h>
@@ -58,8 +57,16 @@ class Camera;
 class QWidget;
 
 namespace rviz{
-class RenderPanel;
 class PanelDockWidget;
+
+class DisplayGroupVisibilityProperty;
+class EnumProperty;
+class FloatProperty;
+class IntProperty;
+class RenderPanel;
+class RosTopicProperty;
+class StringProperty;
+class TfFrameProperty;
 }
 
 namespace video_export{
@@ -109,7 +116,6 @@ public:
 
   // Overrides from Display
   virtual void fixedFrameChanged();
-  virtual void createProperties();
   virtual void update(float wall_dt, float ros_dt);
   virtual void reset();
 
@@ -118,8 +124,10 @@ public:
   virtual void postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt);
 
 protected Q_SLOTS:
-  /** Enables or disables this display via its DisplayWrapper. */ 
-  void setWrapperEnabled( bool enabled );
+  // void forceRender();
+  // void updateAlpha();
+
+  // virtual void updateQueueSize();
 
 protected:
 
@@ -137,8 +145,8 @@ protected:
   void clear();
   void updateStatus();
 
-  void onTransportEnumOptions(V_string& choices);
-  void onImagePositionEnumOptions(V_string& choices);
+  void onTransportEnumOptions(QString& choices);
+  void onImagePositionEnumOptions(QString& choices);
 
   Ogre::SceneNode* bg_scene_node_;
   Ogre::SceneNode* fg_scene_node_;
@@ -159,30 +167,31 @@ protected:
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
-  FloatPropertyWPtr alpha_property_;
-  ROSTopicStringPropertyWPtr topic_property_;
-  StringPropertyWPtr out_topic_property_;
-  EditEnumPropertyWPtr transport_property_;
-  EditEnumPropertyWPtr image_position_property_;
-  FloatPropertyWPtr zoom_property_;
-  IntPropertyWPtr queue_size_property_;
+  rviz::DisplayGroupVisibilityProperty* visibility_property_;
+  rviz::FloatProperty* alpha_property_;
+  rviz::RosTopicProperty* topic_property_;
+  rviz::StringProperty* out_topic_property_;
+  rviz::EnumProperty* transport_property_;
+  rviz::EnumProperty* image_position_property_;
+  rviz::FloatProperty* zoom_property_;
+  rviz::IntProperty* queue_size_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
   boost::mutex caminfo_mutex_;
 
   bool new_caminfo_;
 
-  ROSImageTexture texture_;
+  rviz::ROSImageTexture texture_;
 
-  RenderPanel* render_panel_;
+  rviz::RenderPanel* render_panel_;
 
   bool force_render_;
 
-  PanelDockWidget* panel_container_;
+  uint32_t vis_bit_;
 
   video_export::VideoPublisher* video_publisher_;
 };
 
 } // namespace rviz_mod
 
- #endif
+#endif
