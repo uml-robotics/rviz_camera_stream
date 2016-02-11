@@ -27,6 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// TODO(lwalter) move this file to include/rviz_camera_stream
+
 #ifndef RVIZ_CAMERA_DISPLAY_H
 #define RVIZ_CAMERA_DISPLAY_H
 
@@ -64,6 +66,7 @@ namespace video_export{
 class  VideoPublisher;
 }
 
+// TODO(lwalter) rename to rviz_camera_stream
 namespace rviz_mod
 {
 using namespace rviz;
@@ -72,6 +75,7 @@ using namespace rviz;
  * \class CameraDisplay
  *
  */
+// TODO(lwalter) rename to CameraStream
 class CameraDisplay: public rviz::Display, public Ogre::RenderTargetListener
 {
 Q_OBJECT
