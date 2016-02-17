@@ -58,8 +58,76 @@
 #include "rviz/load_resource.h"
 
 #include <image_transport/camera_common.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.h>
 
 #include "camera_display.h"
+
+namespace video_export
+{
+class VideoPublisher
+{
+private:
+  ros::NodeHandle nh_;
+  image_transport::ImageTransport it_;
+  image_transport::Publisher pub_;
+  uint image_id_;
+public:
+  VideoPublisher() :
+          it_(nh_),
+          image_id_(0)
+  {
+  }
+  void shutdown()
+  {
+    if (pub_.getTopic() != "")
+    {
+      pub_.shutdown();
+    }
+  }
+
+  void advertise(std::string topic)
+  {
+    pub_ = it_.advertise(topic, 1);
+  }
+
+  void publishFrame(Ogre::RenderWindow * render_window)
+  {
+    if (pub_.getTopic() == "")
+    {
+      return;
+    }
+    // RenderTarget::writeContentsToFile() used as example
+    int height = render_window->getHeight();
+    int width = render_window->getWidth();
+    Ogre::PixelFormat pf = render_window->suggestPixelFormat();
+    uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
+    uint datasize = width * height * pixelsize;
+
+    // 1.05 multiplier is to avoid crash when the window is resized.
+    // There should be a better solution.
+    uchar *data = OGRE_ALLOC_T(uchar, datasize * 1.05, Ogre::MEMCATEGORY_RENDERSYS);
+    Ogre::PixelBox pb(width, height, 1, pf, data);
+    render_window->copyContentsToMemory(pb);
+
+    sensor_msgs::Image image;
+    image.header.stamp = ros::Time::now();
+    image.header.seq = image_id_++;
+    image.height = height;
+    image.width = width;
+    image.step = pixelsize * width;
+    image.encoding = sensor_msgs::image_encodings::RGB8; // would break if pf changes
+    image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
+    image.data.resize(datasize);
+    memcpy(&image.data[0], data, datasize);
+    pub_.publish(image);
+
+    OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
+  }
+
+};
+}// namespace video_export
+
 
 namespace rviz
 {
@@ -86,6 +154,7 @@ CameraPub::CameraPub()
   , new_caminfo_( false )
   , force_render_( false )
   , caminfo_ok_(false)
+  , video_publisher_(0)
 {
   image_position_property_ = new EnumProperty( "Image Rendering", BOTH,
                                                "Render the image behind all other geometry or overlay it on top, or both.",
@@ -136,6 +205,8 @@ CameraPub::~CameraPub()
 void CameraPub::onInitialize()
 {
   ImageDisplayBase::onInitialize();
+
+  video_publisher_ = new video_export::VideoPublisher();
 
   caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>( *context_->getTFClient(), fixed_frame_.toStdString(),
                                                                        queue_size_property_->getInt(), update_nh_ );
@@ -238,6 +309,9 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   bg_scene_node_->setVisible( false );
   fg_scene_node_->setVisible( false );
+
+  // Publish the rendered window video stream
+  video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
 
 void CameraPub::onEnable()
@@ -277,10 +351,14 @@ void CameraPub::subscribe()
   {
     setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
   }
+
+  // TODO(lwalter) need to make this topic come from plugin ui
+  video_publisher_->advertise("rviz_out");
 }
 
 void CameraPub::unsubscribe()
 {
+  video_publisher_->shutdown();
   ImageDisplayBase::unsubscribe();
   caminfo_sub_.unsubscribe();
 }

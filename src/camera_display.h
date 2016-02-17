@@ -55,6 +55,10 @@ class Rectangle2D;
 class Camera;
 }
 
+namespace video_export{
+class  VideoPublisher;
+}
+
 namespace rviz
 {
 
@@ -143,6 +147,8 @@ private:
   bool force_render_;
 
   uint32_t vis_bit_;
+
+  video_export::VideoPublisher* video_publisher_;
 };
 
 } // namespace rviz
