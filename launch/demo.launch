@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- launch rviz with config/rviz_camera_stream.rviz -->
+
+  <node pkg="tf" type="static_transform_publisher" name="camera_broadcaster"
+    args="0 0 0 0 0 0 1 map camera 10" />
+
+  <node pkg="vimjay" type="image.py" name="image_pub" 
+    args="$(find vimjay)/data/gradient_radial.png" >
+    <param name="frame_id" value="camera" />
+  </node>
+
+</launch>
