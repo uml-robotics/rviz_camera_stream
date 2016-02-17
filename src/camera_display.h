@@ -181,6 +181,7 @@ protected:
 
   bool new_caminfo_;
 
+  // TODO(lwalter) not sure this is actually used
   rviz::ROSImageTexture texture_;
 
   rviz::RenderPanel* render_panel_;

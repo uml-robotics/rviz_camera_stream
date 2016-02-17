@@ -334,11 +334,11 @@ void CameraDisplay::subscribe()
   try
   {
     caminfo_sub_.subscribe( update_nh_, caminfo_topic, 1 );
-    setStatus( StatusProperty::Ok, "Camera Info", "OK" );
+    // setStatus( StatusProperty::Ok, "Camera Info", "OK" );
   }
   catch( ros::Exception& e )
   {
-    setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
+    // setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
   }
 }
 
@@ -385,7 +385,7 @@ void CameraDisplay::setQueueSize( int size )
 {
   if( size != (int) caminfo_tf_filter_->getQueueSize() )
   {
-    texture_.setQueueSize( (uint32_t) size );
+    // texture_.setQueueSize( (uint32_t) size );
     caminfo_tf_filter_->setQueueSize( (uint32_t) size );
   }
 }
@@ -423,7 +423,7 @@ void CameraDisplay::setTransport(const std::string& transport)
 {
   transport_ = transport;
 
-  texture_.setTransportType(transport);
+  // texture_.setTransportType(transport);
 
 }
 
@@ -445,24 +445,14 @@ void CameraDisplay::clear()
   new_caminfo_ = false;
   current_caminfo_.reset();
 
-  setStatus(status_levels::Warn, "CameraInfo", "No CameraInfo received on [" + caminfo_sub_.getTopic() + "].  Topic may not exist.");
-  setStatus(status_levels::Warn, "Image", "No Image received");
+  setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received on [" + QString::fromStdString(caminfo_sub_.getTopic()) + "].  Topic may not exist.");
+  setStatus(StatusProperty::Warn, "Image", "No Image received");
 
   render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
 }
 
 void CameraDisplay::updateStatus()
 {
-  if (texture_.getImageCount() == 0)
-  {
-    setStatus(status_levels::Warn, "Image", "No image received");
-  }
-  else
-  {
-    std::stringstream ss;
-    ss << texture_.getImageCount() << " images received";
-    setStatus(status_levels::Ok, "Image", ss.str());
-  }
 }
 
 void CameraDisplay::update(float wall_dt, float ros_dt)
@@ -474,10 +464,6 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
     if (texture_.update() || force_render_)
     {
       float old_alpha = alpha_;
-      if (texture_.getImageCount() == 0)
-      {
-        alpha_ = 1.0f;
-      }
 
       updateCamera();
       render_panel_->getRenderWindow()->update();
@@ -488,7 +474,7 @@ void CameraDisplay::update(float wall_dt, float ros_dt)
   }
   catch (UnsupportedImageEncoding& e)
   {
-    setStatus(status_levels::Error, "Image", e.what());
+    setStatus(StatusProperty::Error, "Image", e.what());
   }
 }
 
@@ -510,7 +496,7 @@ void CameraDisplay::updateCamera()
 
   if (!validateFloats(*info))
   {
-    setStatus(status_levels::Error, "CameraInfo", "Contains invalid floating point values (nans or infs)");
+    setStatus(StatusProperty::Error, "Camera Info", "Contains invalid floating point values (nans or infs)");
     return;
   }
 
@@ -528,21 +514,21 @@ void CameraDisplay::updateCamera()
   // If the image width is 0 due to a malformed caminfo, try to grab the width from the image.
   if (img_width == 0)
   {
-    ROS_DEBUG("Malformed CameraInfo on camera [%s], width = 0", getName().c_str());
+    ROS_DEBUG("Malformed CameraInfo on camera [%s], width = 0", getName().toStdString().c_str());
 
     img_width = texture_.getWidth();
   }
 
   if (img_height == 0)
   {
-    ROS_DEBUG("Malformed CameraInfo on camera [%s], height = 0", getName().c_str());
+    ROS_DEBUG("Malformed CameraInfo on camera [%s], height = 0", getName().toStdString().c_str());
 
     img_height = texture_.getHeight();
   }
 
   if (img_height == 0.0 || img_width == 0.0)
   {
-    setStatus(status_levels::Error, "CameraInfo", "Could not determine width/height of image due to malformed CameraInfo (either width or height is 0)");
+    setStatus(StatusProperty::Error, "Camera Info", "Could not determine width/height of image due to malformed CameraInfo (either width or height is 0)");
     return;
   }
 
@@ -581,7 +567,7 @@ void CameraDisplay::updateCamera()
 
   if (!validateFloats(position))
   {
-    setStatus(status_levels::Error, "CameraInfo", "CameraInfo/P resulted in an invalid position calculation (nans or infs)");
+    setStatus(StatusProperty::Error, "Camera Info", "CameraInfo/P resulted in an invalid position calculation (nans or infs)");
     return;
   }
 
@@ -611,7 +597,7 @@ void CameraDisplay::updateCamera()
 
   render_panel_->getCamera()->setCustomProjectionMatrix( true, proj_matrix );
 
-  setStatus(status_levels::Ok, "CameraInfo", "OK");
+  setStatus(StatusProperty::Ok, "Camera Info", "OK");
 
 #if 0
   static Axes* debug_axes = new Axes(scene_manager_, 0, 0.2, 0.01);
@@ -638,21 +624,21 @@ void CameraDisplay::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg
 
 void CameraDisplay::onTransportEnumOptions(QString& choices)
 {
-  texture_.getAvailableTransportTypes(choices);
+  // texture_.getAvailableTransportTypes(choices);
 }
 
 void CameraDisplay::onImagePositionEnumOptions(QString& choices)
 {
   choices.clear();
-  choices.push_back(IMAGE_POS_BACKGROUND);
-  choices.push_back(IMAGE_POS_OVERLAY);
-  choices.push_back(IMAGE_POS_BOTH);
+  choices.push_back(QString::fromStdString(IMAGE_POS_BACKGROUND));
+  choices.push_back(QString::fromStdString(IMAGE_POS_OVERLAY));
+  choices.push_back(QString::fromStdString(IMAGE_POS_BOTH));
 }
 
 void CameraDisplay::fixedFrameChanged()
 {
-  caminfo_tf_filter_->setTargetFrame(fixed_frame_);
-  texture_.setFrame(fixed_frame_, context_->getTFClient());
+  caminfo_tf_filter_->setTargetFrame(fixed_frame_.toStdString());
+  // texture_.setFrame(fixed_frame_, context_->getTFClient());
 }
 
 void CameraDisplay::reset()
