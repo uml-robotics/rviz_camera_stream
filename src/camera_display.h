@@ -66,15 +66,15 @@ class RosTopicProperty;
 class DisplayGroupVisibilityProperty;
 
 /**
- * \class CameraDisplay
+ * \class CameraPub
  *
  */
-class CameraDisplay: public ImageDisplayBase, public Ogre::RenderTargetListener
+class CameraPub: public ImageDisplayBase, public Ogre::RenderTargetListener
 {
 Q_OBJECT
 public:
-  CameraDisplay();
-  virtual ~CameraDisplay();
+  CameraPub();
+  virtual ~CameraPub();
 
   // Overrides from Display
   virtual void onInitialize();

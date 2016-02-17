@@ -64,9 +64,9 @@
 namespace rviz
 {
 
-const QString CameraDisplay::BACKGROUND( "background" );
-const QString CameraDisplay::OVERLAY( "overlay" );
-const QString CameraDisplay::BOTH( "background and overlay" );
+const QString CameraPub::BACKGROUND( "background" );
+const QString CameraPub::OVERLAY( "overlay" );
+const QString CameraPub::BOTH( "background and overlay" );
 
 bool validateFloats(const sensor_msgs::CameraInfo& msg)
 {
@@ -78,7 +78,7 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
   return valid;
 }
 
-CameraDisplay::CameraDisplay()
+CameraPub::CameraPub()
   : ImageDisplayBase()
   , texture_()
   , render_panel_( 0 )
@@ -107,7 +107,7 @@ CameraDisplay::CameraDisplay()
   zoom_property_->setMax( 100000 );
 }
 
-CameraDisplay::~CameraDisplay()
+CameraPub::~CameraPub()
 {
   if ( initialized() )
   {
@@ -133,7 +133,7 @@ CameraDisplay::~CameraDisplay()
   }
 }
 
-void CameraDisplay::onInitialize()
+void CameraPub::onInitialize()
 {
   ImageDisplayBase::onInitialize();
 
@@ -146,7 +146,7 @@ void CameraDisplay::onInitialize()
   {
     static int count = 0;
     UniformStringStream ss;
-    ss << "CameraDisplayObject" << count++;
+    ss << "CameraPubObject" << count++;
 
     //background rectangle
     bg_screen_rect_ = new Ogre::Rectangle2D(true);
@@ -209,7 +209,7 @@ void CameraDisplay::onInitialize()
   render_panel_->getCamera()->setNearClipDistance( 0.01f );
 
   caminfo_tf_filter_->connectInput(caminfo_sub_);
-  caminfo_tf_filter_->registerCallback(boost::bind(&CameraDisplay::caminfoCallback, this, _1));
+  caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
   //context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
 
   vis_bit_ = context_->visibilityBits()->allocBit();
@@ -224,7 +224,7 @@ void CameraDisplay::onInitialize()
   this->addChild( visibility_property_, 0 );
 }
 
-void CameraDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
+void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   QString image_position = image_position_property_->getString();
   bg_scene_node_->setVisible( caminfo_ok_ && (image_position == BACKGROUND || image_position == BOTH) );
@@ -234,26 +234,26 @@ void CameraDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
   visibility_property_->update();
 }
 
-void CameraDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
+void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   bg_scene_node_->setVisible( false );
   fg_scene_node_->setVisible( false );
 }
 
-void CameraDisplay::onEnable()
+void CameraPub::onEnable()
 {
   subscribe();
   render_panel_->getRenderWindow()->setActive(true);
 }
 
-void CameraDisplay::onDisable()
+void CameraPub::onDisable()
 {
   render_panel_->getRenderWindow()->setActive(false);
   unsubscribe();
   clear();
 }
 
-void CameraDisplay::subscribe()
+void CameraPub::subscribe()
 {
   if ( (!isEnabled()) || (topic_property_->getTopicStd().empty()) )
   {
@@ -279,13 +279,13 @@ void CameraDisplay::subscribe()
   }
 }
 
-void CameraDisplay::unsubscribe()
+void CameraPub::unsubscribe()
 {
   ImageDisplayBase::unsubscribe();
   caminfo_sub_.unsubscribe();
 }
 
-void CameraDisplay::updateAlpha()
+void CameraPub::updateAlpha()
 {
   float alpha = alpha_property_->getFloat();
 
@@ -305,19 +305,19 @@ void CameraDisplay::updateAlpha()
   context_->queueRender();
 }
 
-void CameraDisplay::forceRender()
+void CameraPub::forceRender()
 {
   force_render_ = true;
   context_->queueRender();
 }
 
-void CameraDisplay::updateQueueSize()
+void CameraPub::updateQueueSize()
 {
   caminfo_tf_filter_->setQueueSize( (uint32_t) queue_size_property_->getInt() );
   ImageDisplayBase::updateQueueSize();
 }
 
-void CameraDisplay::clear()
+void CameraPub::clear()
 {
   texture_.clear();
   force_render_ = true;
@@ -333,7 +333,7 @@ void CameraDisplay::clear()
   render_panel_->getCamera()->setPosition( Ogre::Vector3( 999999, 999999, 999999 ));
 }
 
-void CameraDisplay::update( float wall_dt, float ros_dt )
+void CameraPub::update( float wall_dt, float ros_dt )
 {
   try
   {
@@ -351,7 +351,7 @@ void CameraDisplay::update( float wall_dt, float ros_dt )
   render_panel_->getRenderWindow()->update();
 }
 
-bool CameraDisplay::updateCamera()
+bool CameraPub::updateCamera()
 {
   sensor_msgs::CameraInfo::ConstPtr info;
   sensor_msgs::Image::ConstPtr image;
@@ -388,7 +388,7 @@ bool CameraDisplay::updateCamera()
   Ogre::Quaternion orientation;
   context_->getFrameManager()->getTransform( image->header.frame_id, image->header.stamp, position, orientation );
 
-  //printf( "CameraDisplay:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
+  //printf( "CameraPub:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
 
   // convert vision (Z-forward) frame to ogre frame (Z-out)
   orientation = orientation * Ogre::Quaternion( Ogre::Degree( 180 ), Ogre::Vector3::UNIT_X );
@@ -504,26 +504,26 @@ bool CameraDisplay::updateCamera()
   return true;
 }
 
-void CameraDisplay::processMessage(const sensor_msgs::Image::ConstPtr& msg)
+void CameraPub::processMessage(const sensor_msgs::Image::ConstPtr& msg)
 {
   texture_.addMessage(msg);
 }
 
-void CameraDisplay::caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg )
+void CameraPub::caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg )
 {
   boost::mutex::scoped_lock lock( caminfo_mutex_ );
   current_caminfo_ = msg;
   new_caminfo_ = true;
 }
 
-void CameraDisplay::fixedFrameChanged()
+void CameraPub::fixedFrameChanged()
 {
   std::string targetFrame = fixed_frame_.toStdString();
   caminfo_tf_filter_->setTargetFrame(targetFrame);
   ImageDisplayBase::fixedFrameChanged();
 }
 
-void CameraDisplay::reset()
+void CameraPub::reset()
 {
   ImageDisplayBase::reset();
   clear();
@@ -532,4 +532,4 @@ void CameraDisplay::reset()
 } // namespace rviz
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS( rviz::CameraDisplay, rviz::Display )
+PLUGINLIB_EXPORT_CLASS( rviz::CameraPub, rviz::Display )
