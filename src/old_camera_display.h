@@ -27,25 +27,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// TODO(lwalter) move this file to include/rviz_camera_stream
+
 #ifndef RVIZ_CAMERA_DISPLAY_H
 #define RVIZ_CAMERA_DISPLAY_H
 
 #include <QObject>
 
-#ifndef Q_MOC_RUN
-#include <OgreMaterial.h>
-#include <OgreRenderTargetListener.h>
-#include <OgreSharedPtr.h>
+#include "rviz/display.h"
+#include "rviz/render_panel.h"
+#include "rviz/image/ros_image_texture.h"
 
-# include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/CameraInfo.h>
 
-# include <message_filters/subscriber.h>
-# include <tf/message_filter.h>
+#include <OGRE/OgreMaterial.h>
+#include <OGRE/OgreRenderTargetListener.h>
 
-# include "rviz/image/image_display_base.h"
-# include "rviz/image/ros_image_texture.h"
-# include "rviz/render_panel.h"
-#endif
+#include <message_filters/subscriber.h>
+#include <tf/message_filter.h>
 
 namespace Ogre
 {
@@ -55,66 +54,99 @@ class Rectangle2D;
 class Camera;
 }
 
-namespace rviz
-{
+class QWidget;
 
+namespace rviz{
+class PanelDockWidget;
+
+class DisplayGroupVisibilityProperty;
 class EnumProperty;
 class FloatProperty;
 class IntProperty;
 class RenderPanel;
 class RosTopicProperty;
-class DisplayGroupVisibilityProperty;
+class StringProperty;
+class TfFrameProperty;
+}
+
+namespace video_export{
+class  VideoPublisher;
+}
+
+// TODO(lwalter) rename to rviz_camera_stream
+namespace rviz_mod
+{
+using namespace rviz;
 
 /**
  * \class CameraDisplay
  *
  */
-class CameraDisplay: public ImageDisplayBase, public Ogre::RenderTargetListener
+// TODO(lwalter) rename to CameraStream
+class CameraDisplay: public rviz::Display, public Ogre::RenderTargetListener
 {
 Q_OBJECT
 public:
   CameraDisplay();
   virtual ~CameraDisplay();
 
-  // Overrides from Display
   virtual void onInitialize();
+
+  float getAlpha() { return alpha_; }
+  void setAlpha( float alpha );
+
+  const std::string& getTopic() { return topic_; }
+  void setTopic(const std::string& topic);
+
+  const std::string& getOutTopic() { return out_topic_; }
+  void setOutTopic(const std::string& out_topic);
+
+  const std::string& getTransport() { return transport_; }
+  void setTransport(const std::string& transport);
+
+  const std::string& getImagePosition() { return image_position_; }
+  void setImagePosition(const std::string& image_position);
+
+  float getZoom() { return zoom_; }
+  void setZoom( float zoom );
+
+  /** Set the incoming message queue size. */
+  void setQueueSize( int size );
+  int getQueueSize();
+
+  // Overrides from Display
   virtual void fixedFrameChanged();
-  virtual void update( float wall_dt, float ros_dt );
+  virtual void update(float wall_dt, float ros_dt);
   virtual void reset();
 
   // Overrides from Ogre::RenderTargetListener
-  virtual void preRenderTargetUpdate( const Ogre::RenderTargetEvent& evt );
-  virtual void postRenderTargetUpdate( const Ogre::RenderTargetEvent& evt );
+  virtual void preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt);
+  virtual void postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt);
 
-  static const QString BACKGROUND;
-  static const QString OVERLAY;
-  static const QString BOTH;
+protected Q_SLOTS:
+  // void forceRender();
+  // void updateAlpha();
+
+  // virtual void updateQueueSize();
 
 protected:
+
   // overrides from Display
   virtual void onEnable();
   virtual void onDisable();
 
-  ROSImageTexture texture_;
-  RenderPanel* render_panel_;
-
-private Q_SLOTS:
-  void forceRender();
-  void updateAlpha();
-
-  virtual void updateQueueSize();
-
-private:
   void subscribe();
   void unsubscribe();
 
-  virtual void processMessage(const sensor_msgs::Image::ConstPtr& msg);
-  void caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg );
+  void caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
 
-  bool updateCamera();
+  void updateCamera();
 
   void clear();
   void updateStatus();
+
+  void onTransportEnumOptions(QString& choices);
+  void onImagePositionEnumOptions(QString& choices);
 
   Ogre::SceneNode* bg_scene_node_;
   Ogre::SceneNode* fg_scene_node_;
@@ -125,26 +157,42 @@ private:
   Ogre::Rectangle2D* fg_screen_rect_;
   Ogre::MaterialPtr fg_material_;
 
+  float alpha_;
+  float zoom_;
+  std::string topic_;
+  std::string out_topic_;
+  std::string transport_;
+  std::string image_position_;
+
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
-  FloatProperty* alpha_property_;
-  EnumProperty* image_position_property_;
-  FloatProperty* zoom_property_;
-  DisplayGroupVisibilityProperty* visibility_property_;
+  rviz::DisplayGroupVisibilityProperty* visibility_property_;
+  rviz::FloatProperty* alpha_property_;
+  rviz::RosTopicProperty* topic_property_;
+  rviz::StringProperty* out_topic_property_;
+  rviz::EnumProperty* transport_property_;
+  rviz::EnumProperty* image_position_property_;
+  rviz::FloatProperty* zoom_property_;
+  rviz::IntProperty* queue_size_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
   boost::mutex caminfo_mutex_;
 
   bool new_caminfo_;
 
-  bool caminfo_ok_;
+  // TODO(lwalter) not sure this is actually used
+  rviz::ROSImageTexture texture_;
+
+  rviz::RenderPanel* render_panel_;
 
   bool force_render_;
 
   uint32_t vis_bit_;
+
+  video_export::VideoPublisher* video_publisher_;
 };
 
-} // namespace rviz
+} // namespace rviz_mod
 
- #endif
+#endif

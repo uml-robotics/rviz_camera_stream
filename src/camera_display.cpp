@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Willow Garage, Inc.
+ * Copyright (c) 2012, Willow Garage, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,140 +27,84 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "camera_display.h"
+#include <boost/bind.hpp>
 
+#include <OgreManualObject.h>
+#include <OgreMaterialManager.h>
+#include <OgreRectangle2D.h>
+#include <OgreRenderSystem.h>
+#include <OgreRenderWindow.h>
+#include <OgreSceneManager.h>
+#include <OgreSceneNode.h>
+#include <OgreTextureManager.h>
+#include <OgreViewport.h>
+#include <OgreTechnique.h>
+#include <OgreCamera.h>
+
+#include <tf/transform_listener.h>
 
 #include "rviz/bit_allocator.h"
-#include "rviz/display_context.h"
 #include "rviz/frame_manager.h"
-#include "rviz/load_resource.h"
 #include "rviz/ogre_helpers/axes.h"
-#include "rviz/properties/display_group_visibility_property.h"
 #include "rviz/properties/enum_property.h"
 #include "rviz/properties/float_property.h"
 #include "rviz/properties/int_property.h"
-#include "rviz/properties/property.h"
 #include "rviz/properties/ros_topic_property.h"
 #include "rviz/render_panel.h"
 #include "rviz/uniform_string_stream.h"
 #include "rviz/validate_floats.h"
+#include "rviz/display_context.h"
+#include "rviz/properties/display_group_visibility_property.h"
+#include "rviz/load_resource.h"
 
-#include <tf/transform_listener.h>
-
-#include <boost/bind.hpp>
-
-#include <rviz/ogre_helpers/axes.h>
-
-#include <OGRE/OgreSceneNode.h>
-#include <OGRE/OgreSceneManager.h>
-#include <OGRE/OgreRectangle2D.h>
-#include <OGRE/OgreMaterialManager.h>
-#include <OGRE/OgreTextureManager.h>
-#include <OGRE/OgreViewport.h>
-#include <OGRE/OgreRenderWindow.h>
-#include <OGRE/OgreManualObject.h>
-#include <OGRE/OgreRoot.h>
-#include <OGRE/OgreRenderSystem.h>
-
-#include <image_transport/image_transport.h>
 #include <image_transport/camera_common.h>
-#include <sensor_msgs/image_encodings.h>
-namespace video_export
+
+#include "camera_display.h"
+
+namespace rviz
 {
-class VideoPublisher
-{
-private:
-  ros::NodeHandle nh_;
-  image_transport::ImageTransport it_;
-  image_transport::Publisher pub_;
-  uint image_id_;
-public:
-  VideoPublisher() :
-          it_(nh_),
-          image_id_(0)
-  {
-  }
-  void shutdown()
-  {
-    if (pub_.getTopic() != "")
-    {
-      pub_.shutdown();
-    }
-  }
 
-  void advertise(std::string topic)
-  {
-    pub_ = it_.advertise(topic, 1);
-  }
+const QString CameraDisplay::BACKGROUND( "background" );
+const QString CameraDisplay::OVERLAY( "overlay" );
+const QString CameraDisplay::BOTH( "background and overlay" );
 
-  void publishFrame(Ogre::RenderWindow * render_window)
-  {
-    if (pub_.getTopic() == "")
-    {
-      return;
-    }
-    // RenderTarget::writeContentsToFile() used as example
-    int height = render_window->getHeight();
-    int width = render_window->getWidth();
-    Ogre::PixelFormat pf = render_window->suggestPixelFormat();
-    uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
-    uint datasize = width * height * pixelsize;
-
-    // 1.05 multiplier is to avoid crash when the window is resized.
-    // There should be a better solution.
-    uchar *data = OGRE_ALLOC_T(uchar, datasize * 1.05, Ogre::MEMCATEGORY_RENDERSYS);
-    Ogre::PixelBox pb(width, height, 1, pf, data);
-    render_window->copyContentsToMemory(pb);
-
-    sensor_msgs::Image image;
-    image.header.stamp = ros::Time::now();
-    image.header.seq = image_id_++;
-    image.height = height;
-    image.width = width;
-    image.step = pixelsize * width;
-    image.encoding = sensor_msgs::image_encodings::RGB8; // would break if pf changes
-    image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
-    image.data.resize(datasize);
-    memcpy(&image.data[0], data, datasize);
-    pub_.publish(image);
-
-    OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
-  }
-
-};
-}// namespace video_export
-
-namespace rviz{
 bool validateFloats(const sensor_msgs::CameraInfo& msg)
 {
   bool valid = true;
-  valid = valid && validateFloats(msg.D);
-  valid = valid && validateFloats(msg.K);
-  valid = valid && validateFloats(msg.R);
-  valid = valid && validateFloats(msg.P);
+  valid = valid && validateFloats( msg.D );
+  valid = valid && validateFloats( msg.K );
+  valid = valid && validateFloats( msg.R );
+  valid = valid && validateFloats( msg.P );
   return valid;
 }
 
-}
-namespace rviz_mod
-{
-
-static const std::string IMAGE_POS_BACKGROUND = "background";
-static const std::string IMAGE_POS_OVERLAY = "overlay";
-static const std::string IMAGE_POS_BOTH = "background & overlay";
-
 CameraDisplay::CameraDisplay()
-  : Display()
-  , zoom_(1)
-  , transport_("raw")
-  , image_position_(IMAGE_POS_BOTH)
-  , caminfo_tf_filter_( 0 )
-  , new_caminfo_(false)
-  // , texture_(update_nh_)
+  : ImageDisplayBase()
+  , texture_()
   , render_panel_( 0 )
-  , force_render_(false)
-  , video_publisher_( 0 )
+  , caminfo_tf_filter_( 0 )
+  , new_caminfo_( false )
+  , force_render_( false )
+  , caminfo_ok_(false)
 {
+  image_position_property_ = new EnumProperty( "Image Rendering", BOTH,
+                                               "Render the image behind all other geometry or overlay it on top, or both.",
+                                               this, SLOT( forceRender() ));
+  image_position_property_->addOption( BACKGROUND );
+  image_position_property_->addOption( OVERLAY );
+  image_position_property_->addOption( BOTH );
+
+  alpha_property_ = new FloatProperty( "Overlay Alpha", 0.5,
+                                       "The amount of transparency to apply to the camera image when rendered as overlay.",
+                                       this, SLOT( updateAlpha() ));
+  alpha_property_->setMin( 0 );
+  alpha_property_->setMax( 1 );
+
+  zoom_property_ = new FloatProperty( "Zoom Factor", 1.0,
+                                      "Set a zoom factor below 1 to see a larger part of the world, above 1 to magnify the image.",
+                                      this, SLOT( forceRender() ));
+  zoom_property_->setMin( 0.00001 );
+  zoom_property_->setMax( 100000 );
 }
 
 CameraDisplay::~CameraDisplay()
@@ -191,17 +135,18 @@ CameraDisplay::~CameraDisplay()
 
 void CameraDisplay::onInitialize()
 {
-  video_publisher_ = new video_export::VideoPublisher();
+  ImageDisplayBase::onInitialize();
 
-  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(*context_->getTFClient(), "", 2, update_nh_);
+  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>( *context_->getTFClient(), fixed_frame_.toStdString(),
+                                                                       queue_size_property_->getInt(), update_nh_ );
 
-  bg_scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
-  fg_scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
+  bg_scene_node_ = scene_node_->createChildSceneNode();
+  fg_scene_node_ = scene_node_->createChildSceneNode();
 
   {
     static int count = 0;
     UniformStringStream ss;
-    ss << "RvizModCameraDisplayObject" << count++;
+    ss << "CameraDisplayObject" << count++;
 
     //background rectangle
     bg_screen_rect_ = new Ogre::Rectangle2D(true);
@@ -248,16 +193,16 @@ void CameraDisplay::onInitialize()
     fg_scene_node_->setVisible(false);
   }
 
-  setAlpha( 0.5f );
+  updateAlpha();
 
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->addListener( this );
   render_panel_->getRenderWindow()->setAutoUpdated(false);
   render_panel_->getRenderWindow()->setActive( false );
   render_panel_->resize( 640, 480 );
-  render_panel_->initialize(context_->getSceneManager(), context_);
+  render_panel_->initialize( context_->getSceneManager(), context_ );
 
-  setAssociatedWidget(render_panel_);
+  setAssociatedWidget( render_panel_ );
 
   render_panel_->setAutoRender(false);
   render_panel_->setOverlaysEnabled(false);
@@ -265,12 +210,12 @@ void CameraDisplay::onInitialize()
 
   caminfo_tf_filter_->connectInput(caminfo_sub_);
   caminfo_tf_filter_->registerCallback(boost::bind(&CameraDisplay::caminfoCallback, this, _1));
-  // context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
+  //context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
 
   vis_bit_ = context_->visibilityBits()->allocBit();
   render_panel_->getViewport()->setVisibilityMask( vis_bit_ );
 
-  visibility_property_ = new rviz::DisplayGroupVisibilityProperty(
+  visibility_property_ = new DisplayGroupVisibilityProperty(
       vis_bit_, context_->getRootDisplayGroup(), this, "Visibility", true,
       "Changes the visibility of other Displays in the camera view.");
 
@@ -281,26 +226,18 @@ void CameraDisplay::onInitialize()
 
 void CameraDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  bg_scene_node_->setVisible( image_position_ == IMAGE_POS_BACKGROUND || image_position_ == IMAGE_POS_BOTH );
-  fg_scene_node_->setVisible( image_position_ == IMAGE_POS_OVERLAY || image_position_ == IMAGE_POS_BOTH );
+  QString image_position = image_position_property_->getString();
+  bg_scene_node_->setVisible( caminfo_ok_ && (image_position == BACKGROUND || image_position == BOTH) );
+  fg_scene_node_->setVisible( caminfo_ok_ && (image_position == OVERLAY || image_position == BOTH) );
+
+  // set view flags on all displays
+  visibility_property_->update();
 }
 
 void CameraDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  bg_scene_node_->setVisible(false);
-  fg_scene_node_->setVisible(false);
-
-  // Hack around and issue that manifests for certain window widths.
-  // setSizeIncrement does not work on X
-  if ((render_panel_->getRenderWindow()->getWidth() / 2) % 2 == 1)
-  {
-    render_panel_->setFixedWidth(render_panel_->width() + 2);
-  }
-  render_panel_->setMaximumWidth(QWIDGETSIZE_MAX);
-  render_panel_->setMinimumWidth(0);
-
-  // Publish the rendered window video stream
-  video_publisher_->publishFrame(render_panel_->getRenderWindow());
+  bg_scene_node_->setVisible( false );
+  fg_scene_node_->setVisible( false );
 }
 
 void CameraDisplay::onEnable()
@@ -318,15 +255,15 @@ void CameraDisplay::onDisable()
 
 void CameraDisplay::subscribe()
 {
-  if ( !isEnabled() )
+  if ( (!isEnabled()) || (topic_property_->getTopicStd().empty()) )
   {
     return;
   }
 
-  // std::string target_frame = fixed_frame_.toStdString();
-  // ImageDisplayBase::enableTFFilter(target_frame);
+  std::string target_frame = fixed_frame_.toStdString();
+  ImageDisplayBase::enableTFFilter(target_frame);
 
-  // ImageDisplayBase::subscribe();
+  ImageDisplayBase::subscribe();
 
   std::string topic = topic_property_->getTopicStd();
   std::string caminfo_topic = image_transport::getCameraInfoTopic(topic_property_->getTopicStd());
@@ -334,106 +271,50 @@ void CameraDisplay::subscribe()
   try
   {
     caminfo_sub_.subscribe( update_nh_, caminfo_topic, 1 );
-    // setStatus( StatusProperty::Ok, "Camera Info", "OK" );
+    setStatus( StatusProperty::Ok, "Camera Info", "OK" );
   }
   catch( ros::Exception& e )
   {
-    // setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
+    setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
   }
 }
 
 void CameraDisplay::unsubscribe()
 {
-  // texture_.setTopic("");
+  ImageDisplayBase::unsubscribe();
   caminfo_sub_.unsubscribe();
 }
 
-void CameraDisplay::setAlpha( float alpha )
+void CameraDisplay::updateAlpha()
 {
-  alpha_ = alpha;
+  float alpha = alpha_property_->getFloat();
 
-  Ogre::Pass* pass = fg_material_->getTechnique(0)->getPass(0);
-  if (pass->getNumTextureUnitStates() > 0)
+  Ogre::Pass* pass = fg_material_->getTechnique( 0 )->getPass( 0 );
+  if( pass->getNumTextureUnitStates() > 0 )
   {
-    Ogre::TextureUnitState* tex_unit = pass->getTextureUnitState(0);
-    tex_unit->setAlphaOperation( Ogre::LBX_MODULATE, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, alpha_ );
+    Ogre::TextureUnitState* tex_unit = pass->getTextureUnitState( 0 );
+    tex_unit->setAlphaOperation( Ogre::LBX_MODULATE, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, alpha );
   }
   else
   {
-    fg_material_->setAmbient(Ogre::ColourValue(0.0f, 1.0f, 1.0f, alpha_));
-    fg_material_->setDiffuse(Ogre::ColourValue(0.0f, 1.0f, 1.0f, alpha_));
+    fg_material_->setAmbient( Ogre::ColourValue( 0.0f, 1.0f, 1.0f, alpha ));
+    fg_material_->setDiffuse( Ogre::ColourValue( 0.0f, 1.0f, 1.0f, alpha ));
   }
 
   force_render_ = true;
   context_->queueRender();
 }
 
-void CameraDisplay::setZoom( float zoom )
+void CameraDisplay::forceRender()
 {
-  if (fabs(zoom) < .00001 || fabs(zoom) > 100000)
-  {
-    return;
-  }
-  zoom_ = zoom;
-
-
   force_render_ = true;
   context_->queueRender();
 }
 
-void CameraDisplay::setQueueSize( int size )
+void CameraDisplay::updateQueueSize()
 {
-  if( size != (int) caminfo_tf_filter_->getQueueSize() )
-  {
-    // texture_.setQueueSize( (uint32_t) size );
-    caminfo_tf_filter_->setQueueSize( (uint32_t) size );
-  }
-}
-
-int CameraDisplay::getQueueSize()
-{
-  return (int) caminfo_tf_filter_->getQueueSize();
-}
-
-void CameraDisplay::setTopic( const std::string& topic )
-{
-  unsubscribe();
-
-  topic_ = topic;
-  clear();
-
-  subscribe();
-
-}
-
-void CameraDisplay::setOutTopic( const std::string& out_topic )
-{
-  video_publisher_->shutdown();
-
-  out_topic_ = out_topic;
-
-  if (out_topic_ != "")
-  {
-    video_publisher_->advertise(out_topic);
-  }
-
-}
-
-void CameraDisplay::setTransport(const std::string& transport)
-{
-  transport_ = transport;
-
-  // texture_.setTransportType(transport);
-
-}
-
-void CameraDisplay::setImagePosition(const std::string& image_position)
-{
-  image_position_ = image_position;
-
-
-  force_render_ = true;
-  context_->queueRender();
+  caminfo_tf_filter_->setQueueSize( (uint32_t) queue_size_property_->getInt() );
+  ImageDisplayBase::updateQueueSize();
 }
 
 void CameraDisplay::clear()
@@ -445,91 +326,94 @@ void CameraDisplay::clear()
   new_caminfo_ = false;
   current_caminfo_.reset();
 
-  setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received on [" + QString::fromStdString(caminfo_sub_.getTopic()) + "].  Topic may not exist.");
-  setStatus(StatusProperty::Warn, "Image", "No Image received");
+  setStatus( StatusProperty::Warn, "Camera Info",
+             "No CameraInfo received on [" + QString::fromStdString( caminfo_sub_.getTopic() ) + "].  Topic may not exist.");
+  setStatus( StatusProperty::Warn, "Image", "No Image received");
 
-  render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
+  render_panel_->getCamera()->setPosition( Ogre::Vector3( 999999, 999999, 999999 ));
 }
 
-void CameraDisplay::updateStatus()
+void CameraDisplay::update( float wall_dt, float ros_dt )
 {
-}
-
-void CameraDisplay::update(float wall_dt, float ros_dt)
-{
-  updateStatus();
-
   try
   {
-    if (texture_.update() || force_render_)
+    if( texture_.update() || force_render_ )
     {
-      float old_alpha = alpha_;
-
-      updateCamera();
-      render_panel_->getRenderWindow()->update();
-      alpha_ = old_alpha;
-
+      caminfo_ok_ = updateCamera();
       force_render_ = false;
     }
   }
-  catch (UnsupportedImageEncoding& e)
+  catch( UnsupportedImageEncoding& e )
   {
-    setStatus(StatusProperty::Error, "Image", e.what());
+    setStatus( StatusProperty::Error, "Image", e.what() );
   }
+
+  render_panel_->getRenderWindow()->update();
 }
 
-void CameraDisplay::updateCamera()
+bool CameraDisplay::updateCamera()
 {
   sensor_msgs::CameraInfo::ConstPtr info;
   sensor_msgs::Image::ConstPtr image;
   {
-    boost::mutex::scoped_lock lock(caminfo_mutex_);
+    boost::mutex::scoped_lock lock( caminfo_mutex_ );
 
     info = current_caminfo_;
     image = texture_.getImage();
   }
 
-  if (!info || !image)
+  if( !info || !image )
   {
-    return;
+    return false;
   }
 
-  if (!validateFloats(*info))
+  if( !validateFloats( *info ))
   {
-    setStatus(StatusProperty::Error, "Camera Info", "Contains invalid floating point values (nans or infs)");
-    return;
+    setStatus( StatusProperty::Error, "Camera Info", "Contains invalid floating point values (nans or infs)" );
+    return false;
+  }
+
+  // if we're in 'exact' time mode, only show image if the time is exactly right
+  ros::Time rviz_time = context_->getFrameManager()->getTime();
+  if ( context_->getFrameManager()->getSyncMode() == FrameManager::SyncExact &&
+      rviz_time != image->header.stamp )
+  {
+    std::ostringstream s;
+    s << "Time-syncing active and no image at timestamp " << rviz_time.toSec() << ".";
+    setStatus( StatusProperty::Warn, "Time", s.str().c_str() );
+    return false;
   }
 
   Ogre::Vector3 position;
   Ogre::Quaternion orientation;
-  //uses the latest TF info to make sure 3D rendered view is up to date with rendered robot pose
-  context_->getFrameManager()->getTransform(image->header.frame_id, ros::Time(0), position, orientation);
+  context_->getFrameManager()->getTransform( image->header.frame_id, image->header.stamp, position, orientation );
+
+  //printf( "CameraDisplay:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
 
   // convert vision (Z-forward) frame to ogre frame (Z-out)
-  orientation = orientation * Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
+  orientation = orientation * Ogre::Quaternion( Ogre::Degree( 180 ), Ogre::Vector3::UNIT_X );
 
   float img_width = info->width;
   float img_height = info->height;
 
   // If the image width is 0 due to a malformed caminfo, try to grab the width from the image.
-  if (img_width == 0)
+  if( img_width == 0 )
   {
-    ROS_DEBUG("Malformed CameraInfo on camera [%s], width = 0", getName().toStdString().c_str());
-
+    ROS_DEBUG( "Malformed CameraInfo on camera [%s], width = 0", qPrintable( getName() ));
     img_width = texture_.getWidth();
   }
 
   if (img_height == 0)
   {
-    ROS_DEBUG("Malformed CameraInfo on camera [%s], height = 0", getName().toStdString().c_str());
-
+    ROS_DEBUG( "Malformed CameraInfo on camera [%s], height = 0", qPrintable( getName() ));
     img_height = texture_.getHeight();
   }
 
-  if (img_height == 0.0 || img_width == 0.0)
+  if( img_height == 0.0 || img_width == 0.0 )
   {
-    setStatus(StatusProperty::Error, "Camera Info", "Could not determine width/height of image due to malformed CameraInfo (either width or height is 0)");
-    return;
+    setStatus( StatusProperty::Error, "Camera Info",
+               "Could not determine width/height of image due to malformed CameraInfo (either width or height is 0)" );
+    return false;
   }
 
   double fx = info->P[0];
@@ -537,11 +421,11 @@ void CameraDisplay::updateCamera()
 
   float win_width = render_panel_->width();
   float win_height = render_panel_->height();
-  float zoom_x = zoom_;
-  float zoom_y = zoom_;
+  float zoom_x = zoom_property_->getFloat();
+  float zoom_y = zoom_x;
 
-  //preserve aspect ratio
-  if ( win_width != 0 && win_height != 0 )
+  // Preserve aspect ratio
+  if( win_width != 0 && win_height != 0 )
   {
     float img_aspect = (img_width/fx) / (img_height/fy);
     float win_aspect = win_width / win_height;
@@ -565,14 +449,14 @@ void CameraDisplay::updateCamera()
   Ogre::Vector3 down = orientation * Ogre::Vector3::UNIT_Y;
   position = position + (down * ty);
 
-  if (!validateFloats(position))
+  if( !validateFloats( position ))
   {
-    setStatus(StatusProperty::Error, "Camera Info", "CameraInfo/P resulted in an invalid position calculation (nans or infs)");
-    return;
+    setStatus( StatusProperty::Error, "Camera Info", "CameraInfo/P resulted in an invalid position calculation (nans or infs)" );
+    return false;
   }
 
-  render_panel_->getCamera()->setPosition(position);
-  render_panel_->getCamera()->setOrientation(orientation);
+  render_panel_->getCamera()->setPosition( position );
+  render_panel_->getCamera()->setOrientation( orientation );
 
   // calculate the projection matrix
   double cx = info->P[2];
@@ -597,7 +481,7 @@ void CameraDisplay::updateCamera()
 
   render_panel_->getCamera()->setCustomProjectionMatrix( true, proj_matrix );
 
-  setStatus(StatusProperty::Ok, "Camera Info", "OK");
+  setStatus( StatusProperty::Ok, "Camera Info", "OK" );
 
 #if 0
   static Axes* debug_axes = new Axes(scene_manager_, 0, 0.2, 0.01);
@@ -606,50 +490,46 @@ void CameraDisplay::updateCamera()
 #endif
 
   //adjust the image rectangles to fit the zoom & aspect ratio
-  bg_screen_rect_->setCorners(-1.0f*zoom_x, 1.0f*zoom_y, 1.0f*zoom_x, -1.0f*zoom_y);
-  fg_screen_rect_->setCorners(-1.0f*zoom_x, 1.0f*zoom_y, 1.0f*zoom_x, -1.0f*zoom_y);
+  bg_screen_rect_->setCorners( -1.0f*zoom_x, 1.0f*zoom_y, 1.0f*zoom_x, -1.0f*zoom_y );
+  fg_screen_rect_->setCorners( -1.0f*zoom_x, 1.0f*zoom_y, 1.0f*zoom_x, -1.0f*zoom_y );
 
   Ogre::AxisAlignedBox aabInf;
   aabInf.setInfinite();
-  bg_screen_rect_->setBoundingBox(aabInf);
-  fg_screen_rect_->setBoundingBox(aabInf);
+  bg_screen_rect_->setBoundingBox( aabInf );
+  fg_screen_rect_->setBoundingBox( aabInf );
+
+  setStatus( StatusProperty::Ok, "Time", "ok" );
+  setStatus( StatusProperty::Ok, "Camera Info", "ok" );
+
+  return true;
 }
 
-void CameraDisplay::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
+void CameraDisplay::processMessage(const sensor_msgs::Image::ConstPtr& msg)
 {
-  boost::mutex::scoped_lock lock(caminfo_mutex_);
+  texture_.addMessage(msg);
+}
+
+void CameraDisplay::caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg )
+{
+  boost::mutex::scoped_lock lock( caminfo_mutex_ );
   current_caminfo_ = msg;
   new_caminfo_ = true;
 }
 
-void CameraDisplay::onTransportEnumOptions(QString& choices)
-{
-  // texture_.getAvailableTransportTypes(choices);
-}
-
-void CameraDisplay::onImagePositionEnumOptions(QString& choices)
-{
-  choices.clear();
-  choices.push_back(QString::fromStdString(IMAGE_POS_BACKGROUND));
-  choices.push_back(QString::fromStdString(IMAGE_POS_OVERLAY));
-  choices.push_back(QString::fromStdString(IMAGE_POS_BOTH));
-}
-
 void CameraDisplay::fixedFrameChanged()
 {
-  caminfo_tf_filter_->setTargetFrame(fixed_frame_.toStdString());
-  // texture_.setFrame(fixed_frame_, context_->getTFClient());
+  std::string targetFrame = fixed_frame_.toStdString();
+  caminfo_tf_filter_->setTargetFrame(targetFrame);
+  ImageDisplayBase::fixedFrameChanged();
 }
 
 void CameraDisplay::reset()
 {
-  Display::reset();
-
+  ImageDisplayBase::reset();
   clear();
 }
 
-} // namespace rviz_mod
-
+} // namespace rviz
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_DECLARE_CLASS( rviz_camera_stream, Camera, rviz_mod::CameraDisplay, rviz::Display)
+PLUGINLIB_EXPORT_CLASS( rviz::CameraDisplay, rviz::Display )
