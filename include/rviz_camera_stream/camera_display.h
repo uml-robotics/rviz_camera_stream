@@ -43,7 +43,6 @@
 # include <tf/message_filter.h>
 
 # include "rviz/image/image_display_base.h"
-# include "rviz/image/ros_image_texture.h"
 # include "rviz/render_panel.h"
 #endif
 
@@ -74,7 +73,7 @@ class DisplayGroupVisibilityProperty;
  * \class CameraPub
  *
  */
-class CameraPub: public ImageDisplayBase, public Ogre::RenderTargetListener
+class CameraPub: public Display, public Ogre::RenderTargetListener
 {
   Q_OBJECT
 public:
@@ -100,20 +99,19 @@ protected:
   virtual void onEnable();
   virtual void onDisable();
 
-  ROSImageTexture texture_;
   RenderPanel* render_panel_;
 
 private Q_SLOTS:
   void forceRender();
   void updateAlpha();
 
+  void updateTopic();
   virtual void updateQueueSize();
 
 private:
   void subscribe();
   void unsubscribe();
 
-  virtual void processMessage(const sensor_msgs::Image::ConstPtr& msg);
   void caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
 
   bool updateCamera();
@@ -124,7 +122,10 @@ private:
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
+  RosTopicProperty* topic_property_;
+  RosTopicProperty* camera_info_property_;
   DisplayGroupVisibilityProperty* visibility_property_;
+  IntProperty* queue_size_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
   boost::mutex caminfo_mutex_;

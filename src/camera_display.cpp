@@ -88,7 +88,7 @@ public:
     pub_ = it_.advertise(topic, 1);
   }
 
-  void publishFrame(Ogre::RenderWindow * render_window)
+  void publishFrame(Ogre::RenderWindow * render_window, const std::string frame_id)
   {
     if (pub_.getTopic() == "")
     {
@@ -110,6 +110,7 @@ public:
     sensor_msgs::Image image;
     image.header.stamp = ros::Time::now();
     image.header.seq = image_id_++;
+    image.header.frame_id = frame_id;
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
@@ -143,8 +144,7 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
 }
 
 CameraPub::CameraPub()
-  : ImageDisplayBase()
-  , texture_()
+  : Display()
   , render_panel_(0)
   , caminfo_tf_filter_(0)
   , new_caminfo_(false)
@@ -152,6 +152,20 @@ CameraPub::CameraPub()
   , caminfo_ok_(false)
   , video_publisher_(0)
 {
+  topic_property_ = new RosTopicProperty("Image Topic", "",
+      QString::fromStdString(ros::message_traits::datatype<sensor_msgs::Image>()),
+      "sensor_msgs::Image topic to publish to.", this, SLOT(updateTopic()));
+
+  camera_info_property_ = new RosTopicProperty("Camera Info Topic", "",
+      QString::fromStdString(ros::message_traits::datatype<sensor_msgs::CameraInfo>()),
+      "sensor_msgs::CameraInfo topic to subscribe to.", this, SLOT(updateTopic()));
+
+  queue_size_property_ = new IntProperty( "Queue Size", 2,
+      "Advanced: set the size of the incoming message queue.  Increasing this "
+      "is useful if your incoming TF data is delayed significantly from your"
+      " image data, but it can greatly increase memory usage if the messages are big.",
+                                          this, SLOT(updateQueueSize()));
+  queue_size_property_->setMin(1);
 }
 
 CameraPub::~CameraPub()
@@ -176,7 +190,7 @@ CameraPub::~CameraPub()
 
 void CameraPub::onInitialize()
 {
-  ImageDisplayBase::onInitialize();
+  Display::onInitialize();
 
   video_publisher_ = new video_export::VideoPublisher();
 
@@ -213,6 +227,14 @@ void CameraPub::onInitialize()
   this->addChild(visibility_property_, 0);
 }
 
+void CameraPub::updateTopic()
+{
+  unsubscribe();
+  reset();
+  subscribe();
+  context_->queueRender();
+}
+
 void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   // set view flags on all displays
@@ -221,8 +243,16 @@ void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 
 void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
+  // TODO(lucasw) allow this to be throttled down
   // Publish the rendered window video stream
-  video_publisher_->publishFrame(render_panel_->getRenderWindow());
+  std::string frame_id;
+  {
+    boost::mutex::scoped_lock lock(caminfo_mutex_);
+    if (!current_caminfo_)
+      return;
+    frame_id = current_caminfo_->header.frame_id;
+  }
+  video_publisher_->publishFrame(render_panel_->getRenderWindow(), frame_id);
 }
 
 void CameraPub::onEnable()
@@ -240,18 +270,18 @@ void CameraPub::onDisable()
 
 void CameraPub::subscribe()
 {
-  if ((!isEnabled()) || (topic_property_->getTopicStd().empty()))
+  if ((!isEnabled()) ||
+      (topic_property_->getTopicStd().empty()) ||
+      (camera_info_property_->getTopicStd().empty()))
   {
     return;
   }
 
-  std::string target_frame = fixed_frame_.toStdString();
-  ImageDisplayBase::enableTFFilter(target_frame);
-
-  ImageDisplayBase::subscribe();
+  // std::string target_frame = fixed_frame_.toStdString();
+  // Display::enableTFFilter(target_frame);
 
   std::string topic = topic_property_->getTopicStd();
-  std::string caminfo_topic = image_transport::getCameraInfoTopic(topic_property_->getTopicStd());
+  std::string caminfo_topic = camera_info_property_->getTopicStd();
 
   try
   {
@@ -263,14 +293,12 @@ void CameraPub::subscribe()
     setStatus(StatusProperty::Error, "Camera Info", QString("Error subscribing: ") + e.what());
   }
 
-  // TODO(lwalter) need to make this topic come from plugin ui
-  video_publisher_->advertise("rviz_out");
+  video_publisher_->advertise(topic);
 }
 
 void CameraPub::unsubscribe()
 {
   video_publisher_->shutdown();
-  ImageDisplayBase::unsubscribe();
   caminfo_sub_.unsubscribe();
 }
 
@@ -283,12 +311,10 @@ void CameraPub::forceRender()
 void CameraPub::updateQueueSize()
 {
   caminfo_tf_filter_->setQueueSize((uint32_t) queue_size_property_->getInt());
-  ImageDisplayBase::updateQueueSize();
 }
 
 void CameraPub::clear()
 {
-  texture_.clear();
   force_render_ = true;
   context_->queueRender();
 
@@ -299,25 +325,29 @@ void CameraPub::clear()
             "No CameraInfo received on [" +
             QString::fromStdString(caminfo_sub_.getTopic()) +
             "].  Topic may not exist.");
-  setStatus(StatusProperty::Warn, "Image", "No Image received");
+  setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received");
 
   render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
 }
 
 void CameraPub::update(float wall_dt, float ros_dt)
 {
+#if 0
   try
   {
-    if (texture_.update() || force_render_)
+#endif
+    if (force_render_)
     {
       caminfo_ok_ = updateCamera();
       force_render_ = false;
     }
+#if 0
   }
   catch (UnsupportedImageEncoding& e)
   {
     setStatus(StatusProperty::Error, "Image", e.what());
   }
+#endif
 
   render_panel_->getRenderWindow()->update();
 }
@@ -325,15 +355,12 @@ void CameraPub::update(float wall_dt, float ros_dt)
 bool CameraPub::updateCamera()
 {
   sensor_msgs::CameraInfo::ConstPtr info;
-  sensor_msgs::Image::ConstPtr image;
   {
     boost::mutex::scoped_lock lock(caminfo_mutex_);
-
     info = current_caminfo_;
-    image = texture_.getImage();
   }
 
-  if (!info || !image)
+  if (!info)
   {
     return false;
   }
@@ -347,17 +374,17 @@ bool CameraPub::updateCamera()
   // if we're in 'exact' time mode, only show image if the time is exactly right
   ros::Time rviz_time = context_->getFrameManager()->getTime();
   if (context_->getFrameManager()->getSyncMode() == FrameManager::SyncExact &&
-      rviz_time != image->header.stamp)
+      rviz_time != info->header.stamp)
   {
     std::ostringstream s;
-    s << "Time-syncing active and no image at timestamp " << rviz_time.toSec() << ".";
+    s << "Time-syncing active and no info at timestamp " << rviz_time.toSec() << ".";
     setStatus(StatusProperty::Warn, "Time", s.str().c_str());
     return false;
   }
 
   Ogre::Vector3 position;
   Ogre::Quaternion orientation;
-  context_->getFrameManager()->getTransform(image->header.frame_id, image->header.stamp, position, orientation);
+  context_->getFrameManager()->getTransform(info->header.frame_id, info->header.stamp, position, orientation);
 
   // printf( "CameraPub:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
 
@@ -371,13 +398,13 @@ bool CameraPub::updateCamera()
   if (img_width == 0)
   {
     ROS_DEBUG("Malformed CameraInfo on camera [%s], width = 0", qPrintable(getName()));
-    img_width = texture_.getWidth();
+    img_width = 640;
   }
 
   if (img_height == 0)
   {
     ROS_DEBUG("Malformed CameraInfo on camera [%s], height = 0", qPrintable(getName()));
-    img_height = texture_.getHeight();
+    img_height = 480;
   }
 
   if (img_height == 0.0 || img_width == 0.0)
@@ -461,20 +488,9 @@ bool CameraPub::updateCamera()
   debug_axes->setOrientation(orientation);
 #endif
 
-  // adjust the image rectangles to fit the zoom & aspect ratio
-
-  Ogre::AxisAlignedBox aabInf;
-  aabInf.setInfinite();
-
   setStatus(StatusProperty::Ok, "Time", "ok");
-  setStatus(StatusProperty::Ok, "Camera Info", "ok");
 
   return true;
-}
-
-void CameraPub::processMessage(const sensor_msgs::Image::ConstPtr& msg)
-{
-  texture_.addMessage(msg);
 }
 
 void CameraPub::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
@@ -488,12 +504,12 @@ void CameraPub::fixedFrameChanged()
 {
   std::string targetFrame = fixed_frame_.toStdString();
   caminfo_tf_filter_->setTargetFrame(targetFrame);
-  ImageDisplayBase::fixedFrameChanged();
+  Display::fixedFrameChanged();
 }
 
 void CameraPub::reset()
 {
-  ImageDisplayBase::reset();
+  Display::reset();
   clear();
 }
 
