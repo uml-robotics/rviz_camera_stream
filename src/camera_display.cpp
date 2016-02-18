@@ -61,7 +61,7 @@
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
 
-#include "camera_display.h"
+#include "rviz_camera_stream/camera_display.h"
 
 namespace video_export
 {

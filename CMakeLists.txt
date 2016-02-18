@@ -4,10 +4,12 @@ project(rviz_camera_stream)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   image_transport
+  roslint
   rviz
   sensor_msgs
 )
 
+roslint_cpp()
 ## Compiler flags
 # if(CMAKE_COMPILER_IS_GNUCXX)
 #  set(CMAKE_CXX_FLAGS "-std=c++0x")  ## Enable C++11
@@ -16,7 +18,6 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
 include(${QT_USE_FILE})
 
-roslint_cpp()
 
 ## Avoid defining "emit", "slots",
 ## etc for Qt signals because they can conflict with boost signals
@@ -26,12 +27,12 @@ catkin_package(
 )
 
 include_directories(
-  # include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
 qt4_wrap_cpp(MOC_FILES
-  src/camera_display.h
+  include/rviz_camera_stream/camera_display.h
   )
 
 add_library(rviz_camera_stream
