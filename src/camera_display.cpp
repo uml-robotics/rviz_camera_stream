@@ -27,8 +27,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <boost/bind.hpp>
-
+#include <rviz/bit_allocator.h>
+#include <rviz/display_context.h>
+#include <rviz/frame_manager.h>
+#include <rviz/load_resource.h>
+#include <rviz/ogre_helpers/axes.h>
+#include <rviz/properties/display_group_visibility_property.h>
+#include <rviz/properties/enum_property.h>
+#include <rviz/properties/float_property.h>
+#include <rviz/properties/int_property.h>
+#include <rviz/properties/ros_topic_property.h>
+#include <rviz/render_panel.h>
+#include <rviz/uniform_string_stream.h>
+#include <rviz/validate_floats.h>
+#include <OgreCamera.h>
 #include <OgreManualObject.h>
 #include <OgreMaterialManager.h>
 #include <OgreRectangle2D.h>
@@ -36,30 +48,15 @@
 #include <OgreRenderWindow.h>
 #include <OgreSceneManager.h>
 #include <OgreSceneNode.h>
+#include <OgreTechnique.h>
 #include <OgreTextureManager.h>
 #include <OgreViewport.h>
-#include <OgreTechnique.h>
-#include <OgreCamera.h>
-
-#include <tf/transform_listener.h>
-
-#include "rviz/bit_allocator.h"
-#include "rviz/frame_manager.h"
-#include "rviz/ogre_helpers/axes.h"
-#include "rviz/properties/enum_property.h"
-#include "rviz/properties/float_property.h"
-#include "rviz/properties/int_property.h"
-#include "rviz/properties/ros_topic_property.h"
-#include "rviz/render_panel.h"
-#include "rviz/uniform_string_stream.h"
-#include "rviz/validate_floats.h"
-#include "rviz/display_context.h"
-#include "rviz/properties/display_group_visibility_property.h"
-#include "rviz/load_resource.h"
-
+#include <boost/bind.hpp>
 #include <image_transport/camera_common.h>
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
+#include <string>
+#include <tf/transform_listener.h>
 
 #include "rviz_camera_stream/camera_display.h"
 
@@ -116,7 +113,7 @@ public:
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    image.encoding = sensor_msgs::image_encodings::RGB8; // would break if pf changes
+    image.encoding = sensor_msgs::image_encodings::RGB8;  // would break if pf changes
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(datasize);
     memcpy(&image.data[0], data, datasize);
@@ -124,9 +121,8 @@ public:
 
     OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
   }
-
 };
-}// namespace video_export
+}  // namespace video_export
 
 
 namespace rviz
@@ -164,14 +160,15 @@ CameraPub::CameraPub()
   image_position_property_->addOption(BOTH);
 
   alpha_property_ = new FloatProperty("Overlay Alpha", 0.5,
-                                      "The amount of transparency to apply to the camera image when rendered as overlay.",
-                                      this, SLOT(updateAlpha()));
+      "The amount of transparency to apply to the camera image when rendered as overlay.",
+      this, SLOT(updateAlpha()));
   alpha_property_->setMin(0);
   alpha_property_->setMax(1);
 
   zoom_property_ = new FloatProperty("Zoom Factor", 1.0,
-                                     "Set a zoom factor below 1 to see a larger part of the world, above 1 to magnify the image.",
-                                     this, SLOT(forceRender()));
+          QString("Set a zoom factor below 1 to see a larger part of the world, ") +
+          QString("above 1 to magnify the image."),
+          this, SLOT(forceRender()));
   zoom_property_->setMin(0.00001);
   zoom_property_->setMax(100000);
 }
@@ -186,9 +183,9 @@ CameraPub::~CameraPub()
     caminfo_tf_filter_->clear();
 
 
-    //workaround. delete results in a later crash
+    // workaround. delete results in a later crash
     render_panel_->hide();
-    //delete render_panel_;
+    // delete render_panel_;
 
     delete bg_screen_rect_;
     delete fg_screen_rect_;
@@ -208,7 +205,8 @@ void CameraPub::onInitialize()
 
   video_publisher_ = new video_export::VideoPublisher();
 
-  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(*context_->getTFClient(), fixed_frame_.toStdString(),
+  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(
+      *context_->getTFClient(), fixed_frame_.toStdString(),
       queue_size_property_->getInt(), update_nh_);
 
   bg_scene_node_ = scene_node_->createChildSceneNode();
@@ -219,12 +217,13 @@ void CameraPub::onInitialize()
     UniformStringStream ss;
     ss << "CameraPubObject" << count++;
 
-    //background rectangle
+    // background rectangle
     bg_screen_rect_ = new Ogre::Rectangle2D(true);
     bg_screen_rect_->setCorners(-1.0f, 1.0f, 1.0f, -1.0f);
 
     ss << "Material";
-    bg_material_ = Ogre::MaterialManager::getSingleton().create(ss.str(), Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+    bg_material_ = Ogre::MaterialManager::getSingleton().create(
+        ss.str(), Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
     bg_material_->setDepthWriteEnabled(false);
 
     bg_material_->setReceiveShadows(false);
@@ -249,7 +248,7 @@ void CameraPub::onInitialize()
     bg_scene_node_->attachObject(bg_screen_rect_);
     bg_scene_node_->setVisible(false);
 
-    //overlay rectangle
+    // overlay rectangle
     fg_screen_rect_ = new Ogre::Rectangle2D(true);
     fg_screen_rect_->setCorners(-1.0f, 1.0f, 1.0f, -1.0f);
 
@@ -281,7 +280,7 @@ void CameraPub::onInitialize()
 
   caminfo_tf_filter_->connectInput(caminfo_sub_);
   caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
-  //context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
+  // context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
 
   vis_bit_ = context_->visibilityBits()->allocBit();
   render_panel_->getViewport()->setVisibilityMask(vis_bit_);
@@ -405,7 +404,9 @@ void CameraPub::clear()
   current_caminfo_.reset();
 
   setStatus(StatusProperty::Warn, "Camera Info",
-            "No CameraInfo received on [" + QString::fromStdString(caminfo_sub_.getTopic()) + "].  Topic may not exist.");
+            "No CameraInfo received on [" +
+            QString::fromStdString(caminfo_sub_.getTopic()) +
+            "].  Topic may not exist.");
   setStatus(StatusProperty::Warn, "Image", "No Image received");
 
   render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
@@ -466,7 +467,7 @@ bool CameraPub::updateCamera()
   Ogre::Quaternion orientation;
   context_->getFrameManager()->getTransform(image->header.frame_id, image->header.stamp, position, orientation);
 
-  //printf( "CameraPub:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
+  // printf( "CameraPub:updateCamera(): pos = %.2f, %.2f, %.2f.\n", position.x, position.y, position.z );
 
   // convert vision (Z-forward) frame to ogre frame (Z-out)
   orientation = orientation * Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
@@ -529,7 +530,8 @@ bool CameraPub::updateCamera()
 
   if (!validateFloats(position))
   {
-    setStatus(StatusProperty::Error, "Camera Info", "CameraInfo/P resulted in an invalid position calculation (nans or infs)");
+    setStatus(StatusProperty::Error, "Camera Info",
+        "CameraInfo/P resulted in an invalid position calculation (nans or infs)");
     return false;
   }
 
@@ -567,7 +569,7 @@ bool CameraPub::updateCamera()
   debug_axes->setOrientation(orientation);
 #endif
 
-  //adjust the image rectangles to fit the zoom & aspect ratio
+  // adjust the image rectangles to fit the zoom & aspect ratio
   bg_screen_rect_->setCorners(-1.0f * zoom_x, 1.0f * zoom_y, 1.0f * zoom_x, -1.0f * zoom_y);
   fg_screen_rect_->setCorners(-1.0f * zoom_x, 1.0f * zoom_y, 1.0f * zoom_x, -1.0f * zoom_y);
 
@@ -607,7 +609,7 @@ void CameraPub::reset()
   clear();
 }
 
-} // namespace rviz
+}  // namespace rviz
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(rviz::CameraPub, rviz::Display)

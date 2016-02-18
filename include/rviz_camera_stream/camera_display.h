@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RVIZ_CAMERA_DISPLAY_H
-#define RVIZ_CAMERA_DISPLAY_H
+#ifndef RVIZ_CAMERA_STREAM_CAMERA_DISPLAY_H
+#define RVIZ_CAMERA_STREAM_CAMERA_DISPLAY_H
 
 #include <QObject>
 
@@ -154,4 +154,4 @@ private:
 
 }  // namespace rviz
 
-#endif
+#endif  // RVIZ_CAMERA_STREAM_CAMERA_DISPLAY_H
