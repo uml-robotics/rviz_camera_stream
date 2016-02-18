@@ -55,7 +55,8 @@ class Rectangle2D;
 class Camera;
 }
 
-namespace video_export{
+namespace video_export
+{
 class  VideoPublisher;
 }
 
@@ -75,7 +76,7 @@ class DisplayGroupVisibilityProperty;
  */
 class CameraPub: public ImageDisplayBase, public Ogre::RenderTargetListener
 {
-Q_OBJECT
+  Q_OBJECT
 public:
   CameraPub();
   virtual ~CameraPub();
@@ -83,12 +84,12 @@ public:
   // Overrides from Display
   virtual void onInitialize();
   virtual void fixedFrameChanged();
-  virtual void update( float wall_dt, float ros_dt );
+  virtual void update(float wall_dt, float ros_dt);
   virtual void reset();
 
   // Overrides from Ogre::RenderTargetListener
-  virtual void preRenderTargetUpdate( const Ogre::RenderTargetEvent& evt );
-  virtual void postRenderTargetUpdate( const Ogre::RenderTargetEvent& evt );
+  virtual void preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt);
+  virtual void postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt);
 
   static const QString BACKGROUND;
   static const QString OVERLAY;
@@ -113,7 +114,7 @@ private:
   void unsubscribe();
 
   virtual void processMessage(const sensor_msgs::Image::ConstPtr& msg);
-  void caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg );
+  void caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
 
   bool updateCamera();
 
@@ -151,6 +152,6 @@ private:
   video_export::VideoPublisher* video_publisher_;
 };
 
-} // namespace rviz
+}  // namespace rviz
 
- #endif
+#endif
