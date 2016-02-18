@@ -152,12 +152,6 @@ CameraPub::CameraPub()
   , caminfo_ok_(false)
   , video_publisher_(0)
 {
-  image_position_property_ = new EnumProperty("Image Rendering", BOTH,
-      "Render the image behind all other geometry or overlay it on top, or both.",
-      this, SLOT(forceRender()));
-  image_position_property_->addOption(BACKGROUND);
-  image_position_property_->addOption(OVERLAY);
-  image_position_property_->addOption(BOTH);
 }
 
 CameraPub::~CameraPub()
@@ -175,10 +169,8 @@ CameraPub::~CameraPub()
     // delete render_panel_;
 
     delete bg_screen_rect_;
-    delete fg_screen_rect_;
 
     bg_scene_node_->getParentSceneNode()->removeAndDestroyChild(bg_scene_node_->getName());
-    fg_scene_node_->getParentSceneNode()->removeAndDestroyChild(fg_scene_node_->getName());
 
     delete caminfo_tf_filter_;
 
@@ -197,7 +189,6 @@ void CameraPub::onInitialize()
       queue_size_property_->getInt(), update_nh_);
 
   bg_scene_node_ = scene_node_->createChildSceneNode();
-  fg_scene_node_ = scene_node_->createChildSceneNode();
 
   {
     static int count = 0;
@@ -234,23 +225,7 @@ void CameraPub::onInitialize()
 
     bg_scene_node_->attachObject(bg_screen_rect_);
     bg_scene_node_->setVisible(false);
-
-    // overlay rectangle
-    fg_screen_rect_ = new Ogre::Rectangle2D(true);
-    fg_screen_rect_->setCorners(-1.0f, 1.0f, 1.0f, -1.0f);
-
-    fg_material_ = bg_material_->clone(ss.str() + "fg");
-    fg_screen_rect_->setBoundingBox(aabInf);
-    fg_screen_rect_->setMaterial(fg_material_->getName());
-
-    fg_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
-    fg_screen_rect_->setRenderQueueGroup(Ogre::RENDER_QUEUE_OVERLAY - 1);
-
-    fg_scene_node_->attachObject(fg_screen_rect_);
-    fg_scene_node_->setVisible(false);
   }
-
-  updateAlpha();
 
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->addListener(this);
@@ -283,9 +258,7 @@ void CameraPub::onInitialize()
 
 void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  QString image_position = image_position_property_->getString();
-  bg_scene_node_->setVisible(caminfo_ok_ && (image_position == BACKGROUND || image_position == BOTH));
-  fg_scene_node_->setVisible(caminfo_ok_ && (image_position == OVERLAY || image_position == BOTH));
+  bg_scene_node_->setVisible(caminfo_ok_);
 
   // set view flags on all displays
   visibility_property_->update();
@@ -294,7 +267,6 @@ void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   bg_scene_node_->setVisible(false);
-  fg_scene_node_->setVisible(false);
 
   // Publish the rendered window video stream
   video_publisher_->publishFrame(render_panel_->getRenderWindow());
@@ -347,24 +319,6 @@ void CameraPub::unsubscribe()
   video_publisher_->shutdown();
   ImageDisplayBase::unsubscribe();
   caminfo_sub_.unsubscribe();
-}
-
-void CameraPub::updateAlpha()
-{
-  Ogre::Pass* pass = fg_material_->getTechnique(0)->getPass(0);
-  if (pass->getNumTextureUnitStates() > 0)
-  {
-    Ogre::TextureUnitState* tex_unit = pass->getTextureUnitState(0);
-    tex_unit->setAlphaOperation(Ogre::LBX_MODULATE, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, 1.0);
-  }
-  else
-  {
-    fg_material_->setAmbient(Ogre::ColourValue(0.0f, 1.0f, 1.0f, 1.0f));
-    fg_material_->setDiffuse(Ogre::ColourValue(0.0f, 1.0f, 1.0f, 1.0f));
-  }
-
-  force_render_ = true;
-  context_->queueRender();
 }
 
 void CameraPub::forceRender()
@@ -556,12 +510,10 @@ bool CameraPub::updateCamera()
 
   // adjust the image rectangles to fit the zoom & aspect ratio
   bg_screen_rect_->setCorners(-1.0f * zoom_x, 1.0f * zoom_y, 1.0f * zoom_x, -1.0f * zoom_y);
-  fg_screen_rect_->setCorners(-1.0f * zoom_x, 1.0f * zoom_y, 1.0f * zoom_x, -1.0f * zoom_y);
 
   Ogre::AxisAlignedBox aabInf;
   aabInf.setInfinite();
   bg_screen_rect_->setBoundingBox(aabInf);
-  fg_screen_rect_->setBoundingBox(aabInf);
 
   setStatus(StatusProperty::Ok, "Time", "ok");
   setStatus(StatusProperty::Ok, "Camera Info", "ok");

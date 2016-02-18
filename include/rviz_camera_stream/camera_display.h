@@ -122,18 +122,13 @@ private:
   void updateStatus();
 
   Ogre::SceneNode* bg_scene_node_;
-  Ogre::SceneNode* fg_scene_node_;
 
   Ogre::Rectangle2D* bg_screen_rect_;
   Ogre::MaterialPtr bg_material_;
 
-  Ogre::Rectangle2D* fg_screen_rect_;
-  Ogre::MaterialPtr fg_material_;
-
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
-  EnumProperty* image_position_property_;
   DisplayGroupVisibilityProperty* visibility_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
