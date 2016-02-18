@@ -134,7 +134,6 @@ private:
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
   EnumProperty* image_position_property_;
-  FloatProperty* zoom_property_;
   DisplayGroupVisibilityProperty* visibility_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;

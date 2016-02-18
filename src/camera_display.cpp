@@ -158,13 +158,6 @@ CameraPub::CameraPub()
   image_position_property_->addOption(BACKGROUND);
   image_position_property_->addOption(OVERLAY);
   image_position_property_->addOption(BOTH);
-
-  zoom_property_ = new FloatProperty("Zoom Factor", 1.0,
-          QString("Set a zoom factor below 1 to see a larger part of the world, ") +
-          QString("above 1 to magnify the image."),
-          this, SLOT(forceRender()));
-  zoom_property_->setMin(0.00001);
-  zoom_property_->setMax(100000);
 }
 
 CameraPub::~CameraPub()
@@ -492,7 +485,7 @@ bool CameraPub::updateCamera()
 
   float win_width = render_panel_->width();
   float win_height = render_panel_->height();
-  float zoom_x = zoom_property_->getFloat();
+  float zoom_x = 1.0;
   float zoom_y = zoom_x;
 
   // Preserve aspect ratio
