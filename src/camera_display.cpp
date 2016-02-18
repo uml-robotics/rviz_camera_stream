@@ -159,12 +159,6 @@ CameraPub::CameraPub()
   image_position_property_->addOption(OVERLAY);
   image_position_property_->addOption(BOTH);
 
-  alpha_property_ = new FloatProperty("Overlay Alpha", 0.5,
-      "The amount of transparency to apply to the camera image when rendered as overlay.",
-      this, SLOT(updateAlpha()));
-  alpha_property_->setMin(0);
-  alpha_property_->setMax(1);
-
   zoom_property_ = new FloatProperty("Zoom Factor", 1.0,
           QString("Set a zoom factor below 1 to see a larger part of the world, ") +
           QString("above 1 to magnify the image."),
@@ -364,18 +358,16 @@ void CameraPub::unsubscribe()
 
 void CameraPub::updateAlpha()
 {
-  float alpha = alpha_property_->getFloat();
-
   Ogre::Pass* pass = fg_material_->getTechnique(0)->getPass(0);
   if (pass->getNumTextureUnitStates() > 0)
   {
     Ogre::TextureUnitState* tex_unit = pass->getTextureUnitState(0);
-    tex_unit->setAlphaOperation(Ogre::LBX_MODULATE, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, alpha);
+    tex_unit->setAlphaOperation(Ogre::LBX_MODULATE, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, 1.0);
   }
   else
   {
-    fg_material_->setAmbient(Ogre::ColourValue(0.0f, 1.0f, 1.0f, alpha));
-    fg_material_->setDiffuse(Ogre::ColourValue(0.0f, 1.0f, 1.0f, alpha));
+    fg_material_->setAmbient(Ogre::ColourValue(0.0f, 1.0f, 1.0f, 1.0f));
+    fg_material_->setDiffuse(Ogre::ColourValue(0.0f, 1.0f, 1.0f, 1.0f));
   }
 
   force_render_ = true;

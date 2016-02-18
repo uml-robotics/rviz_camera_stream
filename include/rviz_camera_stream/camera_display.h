@@ -133,7 +133,6 @@ private:
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
-  FloatProperty* alpha_property_;
   EnumProperty* image_position_property_;
   FloatProperty* zoom_property_;
   DisplayGroupVisibilityProperty* visibility_property_;
