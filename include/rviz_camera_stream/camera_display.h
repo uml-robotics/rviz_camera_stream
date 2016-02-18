@@ -121,11 +121,6 @@ private:
   void clear();
   void updateStatus();
 
-  Ogre::SceneNode* bg_scene_node_;
-
-  Ogre::Rectangle2D* bg_screen_rect_;
-  Ogre::MaterialPtr bg_material_;
-
   message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 

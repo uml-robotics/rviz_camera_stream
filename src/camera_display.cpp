@@ -168,10 +168,6 @@ CameraPub::~CameraPub()
     render_panel_->hide();
     // delete render_panel_;
 
-    delete bg_screen_rect_;
-
-    bg_scene_node_->getParentSceneNode()->removeAndDestroyChild(bg_scene_node_->getName());
-
     delete caminfo_tf_filter_;
 
     context_->visibilityBits()->freeBits(vis_bit_);
@@ -187,45 +183,6 @@ void CameraPub::onInitialize()
   caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(
       *context_->getTFClient(), fixed_frame_.toStdString(),
       queue_size_property_->getInt(), update_nh_);
-
-  bg_scene_node_ = scene_node_->createChildSceneNode();
-
-  {
-    static int count = 0;
-    UniformStringStream ss;
-    ss << "CameraPubObject" << count++;
-
-    // background rectangle
-    bg_screen_rect_ = new Ogre::Rectangle2D(true);
-    bg_screen_rect_->setCorners(-1.0f, 1.0f, 1.0f, -1.0f);
-
-    ss << "Material";
-    bg_material_ = Ogre::MaterialManager::getSingleton().create(
-        ss.str(), Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
-    bg_material_->setDepthWriteEnabled(false);
-
-    bg_material_->setReceiveShadows(false);
-    bg_material_->setDepthCheckEnabled(false);
-
-    bg_material_->getTechnique(0)->setLightingEnabled(false);
-    Ogre::TextureUnitState* tu = bg_material_->getTechnique(0)->getPass(0)->createTextureUnitState();
-    tu->setTextureName(texture_.getTexture()->getName());
-    tu->setTextureFiltering(Ogre::TFO_NONE);
-    tu->setAlphaOperation(Ogre::LBX_SOURCE1, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, 0.0);
-
-    bg_material_->setCullingMode(Ogre::CULL_NONE);
-    bg_material_->setSceneBlending(Ogre::SBT_REPLACE);
-
-    Ogre::AxisAlignedBox aabInf;
-    aabInf.setInfinite();
-
-    bg_screen_rect_->setRenderQueueGroup(Ogre::RENDER_QUEUE_BACKGROUND);
-    bg_screen_rect_->setBoundingBox(aabInf);
-    bg_screen_rect_->setMaterial(bg_material_->getName());
-
-    bg_scene_node_->attachObject(bg_screen_rect_);
-    bg_scene_node_->setVisible(false);
-  }
 
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->addListener(this);
@@ -258,16 +215,12 @@ void CameraPub::onInitialize()
 
 void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  bg_scene_node_->setVisible(caminfo_ok_);
-
   // set view flags on all displays
   visibility_property_->update();
 }
 
 void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  bg_scene_node_->setVisible(false);
-
   // Publish the rendered window video stream
   video_publisher_->publishFrame(render_panel_->getRenderWindow());
 }
@@ -509,11 +462,9 @@ bool CameraPub::updateCamera()
 #endif
 
   // adjust the image rectangles to fit the zoom & aspect ratio
-  bg_screen_rect_->setCorners(-1.0f * zoom_x, 1.0f * zoom_y, 1.0f * zoom_x, -1.0f * zoom_y);
 
   Ogre::AxisAlignedBox aabInf;
   aabInf.setInfinite();
-  bg_screen_rect_->setBoundingBox(aabInf);
 
   setStatus(StatusProperty::Ok, "Time", "ok");
   setStatus(StatusProperty::Ok, "Camera Info", "ok");
