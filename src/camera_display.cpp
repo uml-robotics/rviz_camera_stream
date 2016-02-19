@@ -88,11 +88,15 @@ public:
     pub_ = it_.advertise(topic, 1);
   }
 
-  void publishFrame(Ogre::RenderWindow * render_window, const std::string frame_id)
+  bool publishFrame(Ogre::RenderWindow * render_window, const std::string frame_id)
   {
     if (pub_.getTopic() == "")
     {
-      return;
+      return false;
+    }
+    if (frame_id == "")
+    {
+      return false;
     }
     // RenderTarget::writeContentsToFile() used as example
     int height = render_window->getHeight();
@@ -146,7 +150,7 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
 CameraPub::CameraPub()
   : Display()
   , render_panel_(0)
-  , caminfo_tf_filter_(0)
+  // , caminfo_tf_filter_(0)
   , new_caminfo_(false)
   , force_render_(false)
   , caminfo_ok_(false)
@@ -175,14 +179,14 @@ CameraPub::~CameraPub()
     render_panel_->getRenderWindow()->removeListener(this);
 
     unsubscribe();
-    caminfo_tf_filter_->clear();
+    // caminfo_tf_filter_->clear();
 
-
+    // TODO(lucasw) is this why the panel doesn't go away entirely, just looks minimized?
     // workaround. delete results in a later crash
     render_panel_->hide();
     // delete render_panel_;
 
-    delete caminfo_tf_filter_;
+    // delete caminfo_tf_filter_;
 
     context_->visibilityBits()->freeBits(vis_bit_);
   }
@@ -194,9 +198,9 @@ void CameraPub::onInitialize()
 
   video_publisher_ = new video_export::VideoPublisher();
 
-  caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(
-      *context_->getTFClient(), fixed_frame_.toStdString(),
-      queue_size_property_->getInt(), update_nh_);
+  // caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(
+  //    *context_->getTFClient(), fixed_frame_.toStdString(),
+  //    queue_size_property_->getInt(), update_nh_);
 
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->addListener(this);
@@ -211,8 +215,8 @@ void CameraPub::onInitialize()
   render_panel_->setOverlaysEnabled(false);
   render_panel_->getCamera()->setNearClipDistance(0.01f);
 
-  caminfo_tf_filter_->connectInput(caminfo_sub_);
-  caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
+  // caminfo_tf_filter_->connectInput(caminfo_sub_);
+  // caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
   // context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
 
   vis_bit_ = context_->visibilityBits()->allocBit();
@@ -270,10 +274,17 @@ void CameraPub::onDisable()
 
 void CameraPub::subscribe()
 {
-  if ((!isEnabled()) ||
-      (topic_property_->getTopicStd().empty()) ||
-      (camera_info_property_->getTopicStd().empty()))
+  if (!isEnabled())
+    return;
+
+  if (topic_property_->getTopicStd().empty())
   {
+    setStatus(StatusProperty::Error, "Output Topic", "No topic set");
+    return;
+  }
+  if (camera_info_property_->getTopicStd().empty())
+  {
+    setStatus(StatusProperty::Error, "Camera Info", "No topic set");
     return;
   }
 
@@ -285,7 +296,8 @@ void CameraPub::subscribe()
 
   try
   {
-    caminfo_sub_.subscribe(update_nh_, caminfo_topic, 1);
+    // caminfo_sub_.subscribe(update_nh_, caminfo_topic, 1);
+    caminfo_sub_ = update_nh_.subscribe(caminfo_topic, 1, &CameraPub::caminfoCallback, this);
     setStatus(StatusProperty::Ok, "Camera Info", "OK");
   }
   catch (ros::Exception& e)
@@ -294,12 +306,13 @@ void CameraPub::subscribe()
   }
 
   video_publisher_->advertise(topic);
+  setStatus(StatusProperty::Ok, "Output Topic", "Topic set");
 }
 
 void CameraPub::unsubscribe()
 {
   video_publisher_->shutdown();
-  caminfo_sub_.unsubscribe();
+  caminfo_sub_.shutdown();
 }
 
 void CameraPub::forceRender()
@@ -310,7 +323,7 @@ void CameraPub::forceRender()
 
 void CameraPub::updateQueueSize()
 {
-  caminfo_tf_filter_->setQueueSize((uint32_t) queue_size_property_->getInt());
+  // caminfo_tf_filter_->setQueueSize((uint32_t) queue_size_property_->getInt());
 }
 
 void CameraPub::clear()
@@ -503,7 +516,7 @@ void CameraPub::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
 void CameraPub::fixedFrameChanged()
 {
   std::string targetFrame = fixed_frame_.toStdString();
-  caminfo_tf_filter_->setTargetFrame(targetFrame);
+  // caminfo_tf_filter_->setTargetFrame(targetFrame);
   Display::fixedFrameChanged();
 }
 

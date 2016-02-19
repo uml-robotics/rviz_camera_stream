@@ -119,8 +119,9 @@ private:
   void clear();
   void updateStatus();
 
-  message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
-  tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
+  ros::Subscriber caminfo_sub_;
+  // message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
+  // tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
   RosTopicProperty* topic_property_;
   RosTopicProperty* camera_info_property_;
