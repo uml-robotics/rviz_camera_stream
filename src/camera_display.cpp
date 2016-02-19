@@ -338,7 +338,7 @@ void CameraPub::clear()
             "No CameraInfo received on [" +
             QString::fromStdString(caminfo_sub_.getTopic()) +
             "].  Topic may not exist.");
-  setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received");
+  // setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received");
 
   render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
 }
@@ -349,11 +349,11 @@ void CameraPub::update(float wall_dt, float ros_dt)
   try
   {
 #endif
-    if (force_render_)
-    {
-      caminfo_ok_ = updateCamera();
-      force_render_ = false;
-    }
+  {
+    caminfo_ok_ = updateCamera();
+    force_render_ = false;
+  }
+
 #if 0
   }
   catch (UnsupportedImageEncoding& e)
@@ -362,6 +362,13 @@ void CameraPub::update(float wall_dt, float ros_dt)
   }
 #endif
 
+  if (caminfo_sub_.getNumPublishers() == 0)
+  {
+    setStatus(StatusProperty::Warn, "Camera Info",
+              "No publishers on [" +
+               QString::fromStdString(caminfo_sub_.getTopic()) +
+               "].  Topic may not exist.");
+  }
   render_panel_->getRenderWindow()->update();
 }
 
