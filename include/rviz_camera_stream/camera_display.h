@@ -140,6 +140,11 @@ private:
   uint32_t vis_bit_;
 
   video_export::VideoPublisher* video_publisher_;
+
+  // render to texture
+  // from http://www.ogre3d.org/tikiwiki/tiki-index.php?page=Intermediate+Tutorial+7
+  Ogre::TexturePtr rtt_texture_;
+  Ogre::RenderTexture* render_texture_;
 };
 
 }  // namespace rviz

@@ -41,6 +41,7 @@
 #include <rviz/uniform_string_stream.h>
 #include <rviz/validate_floats.h>
 #include <OgreCamera.h>
+#include <OgreHardwarePixelBuffer.h>
 #include <OgreManualObject.h>
 #include <OgreMaterialManager.h>
 #include <OgreRectangle2D.h>
@@ -88,7 +89,8 @@ public:
     pub_ = it_.advertise(topic, 1);
   }
 
-  bool publishFrame(Ogre::RenderWindow * render_window, const std::string frame_id)
+  // bool publishFrame(Ogre::RenderWindow * render_object, const std::string frame_id)
+  bool publishFrame(Ogre::RenderTexture * render_object, const std::string frame_id)
   {
     if (pub_.getTopic() == "")
     {
@@ -99,9 +101,11 @@ public:
       return false;
     }
     // RenderTarget::writeContentsToFile() used as example
-    int height = render_window->getHeight();
-    int width = render_window->getWidth();
-    Ogre::PixelFormat pf = render_window->suggestPixelFormat();
+    int height = render_object->getHeight();
+    int width = render_object->getWidth();
+    // the results of pixel format have to be used to determine
+    // image.encoding
+    Ogre::PixelFormat pf = render_object->suggestPixelFormat();
     uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
     uint datasize = width * height * pixelsize;
 
@@ -109,7 +113,7 @@ public:
     // There should be a better solution.
     uchar *data = OGRE_ALLOC_T(uchar, datasize * 1.05, Ogre::MEMCATEGORY_RENDERSYS);
     Ogre::PixelBox pb(width, height, 1, pf, data);
-    render_window->copyContentsToMemory(pb);
+    render_object->copyContentsToMemory(pb, Ogre::RenderTarget::FB_AUTO);
 
     sensor_msgs::Image image;
     image.header.stamp = ros::Time::now();
@@ -118,7 +122,14 @@ public:
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    image.encoding = sensor_msgs::image_encodings::RGB8;  // would break if pf changes
+    if (pixelsize == 3)
+      image.encoding = sensor_msgs::image_encodings::RGB8;  // would break if pf changes
+    else if (pixelsize == 4)
+      image.encoding = sensor_msgs::image_encodings::RGBA8;  // would break if pf changes
+    else
+    {
+      ROS_ERROR_STREAM("unknown pixe format " << pixelsize << " " << pf);
+    }
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(datasize);
     memcpy(&image.data[0], data, datasize);
@@ -229,6 +240,22 @@ void CameraPub::onInitialize()
   visibility_property_->setIcon(loadPixmap("package://rviz/icons/visibility.svg", true));
 
   this->addChild(visibility_property_, 0);
+
+  // render to texture
+  rtt_texture_ = Ogre::TextureManager::getSingleton().createManual(
+      "RttTex",
+      Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+      Ogre::TEX_TYPE_2D,
+      640, 480,
+      0,
+      Ogre::PF_R8G8B8,
+      Ogre::TU_RENDERTARGET);
+  render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
+  render_texture_->addViewport(render_panel_->getCamera());
+
+  render_texture_->getViewport(0)->setClearEveryFrame(true);
+  render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
+  render_texture_->getViewport(0)->setOverlaysEnabled(false);
 }
 
 void CameraPub::updateTopic()
@@ -256,7 +283,10 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
       return;
     frame_id = current_caminfo_->header.frame_id;
   }
-  video_publisher_->publishFrame(render_panel_->getRenderWindow(), frame_id);
+  render_texture_->update();
+
+  // video_publisher_->publishFrame(render_panel_->getRenderWindow(), frame_id);
+  video_publisher_->publishFrame(render_texture_, frame_id);
 }
 
 void CameraPub::onEnable()
