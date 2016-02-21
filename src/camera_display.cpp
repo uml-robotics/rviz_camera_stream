@@ -187,6 +187,7 @@ CameraPub::~CameraPub()
 {
   if (initialized())
   {
+    // render_texture_->removeListener(this);
     render_panel_->getRenderWindow()->removeListener(this);
 
     unsubscribe();
@@ -214,7 +215,6 @@ void CameraPub::onInitialize()
   //    queue_size_property_->getInt(), update_nh_);
 
   render_panel_ = new RenderPanel();
-  render_panel_->getRenderWindow()->addListener(this);
   render_panel_->getRenderWindow()->setAutoUpdated(false);
   render_panel_->getRenderWindow()->setActive(false);
   render_panel_->resize(640, 480);
@@ -224,6 +224,28 @@ void CameraPub::onInitialize()
   static int count = 0;
   ss << "RvizCameraPubCamera" << count++;
   camera_ = context_->getSceneManager()->createCamera(ss.str());
+
+  // render to texture
+  rtt_texture_ = Ogre::TextureManager::getSingleton().createManual(
+      "RttTex",
+      Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+      Ogre::TEX_TYPE_2D,
+      640, 480,
+      0,
+      Ogre::PF_R8G8B8,
+      Ogre::TU_RENDERTARGET);
+  render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
+  render_texture_->addViewport(camera_);
+
+  render_texture_->getViewport(0)->setClearEveryFrame(true);
+  render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
+  render_texture_->getViewport(0)->setOverlaysEnabled(false);
+
+  render_panel_->getRenderWindow()->addListener(this);
+  // render_texture_->addListener(this);
+  // TODO(lucasw) this may not be right
+  // render_texture_->setAutoUpdated(false);
+  ////
 
   setAssociatedWidget(render_panel_);
 
@@ -248,22 +270,6 @@ void CameraPub::onInitialize()
   visibility_property_->setIcon(loadPixmap("package://rviz/icons/visibility.svg", true));
 
   this->addChild(visibility_property_, 0);
-
-  // render to texture
-  rtt_texture_ = Ogre::TextureManager::getSingleton().createManual(
-      "RttTex",
-      Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
-      Ogre::TEX_TYPE_2D,
-      640, 480,
-      0,
-      Ogre::PF_R8G8B8,
-      Ogre::TU_RENDERTARGET);
-  render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
-  render_texture_->addViewport(camera_);
-
-  render_texture_->getViewport(0)->setClearEveryFrame(true);
-  render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
-  render_texture_->getViewport(0)->setOverlaysEnabled(false);
 }
 
 void CameraPub::updateTopic()
@@ -301,11 +307,13 @@ void CameraPub::onEnable()
 {
   subscribe();
   render_panel_->getRenderWindow()->setActive(true);
+  render_texture_->setActive(true);
 }
 
 void CameraPub::onDisable()
 {
   render_panel_->getRenderWindow()->setActive(false);
+  render_texture_->setActive(false);
   unsubscribe();
   clear();
 }
@@ -409,6 +417,7 @@ void CameraPub::update(float wall_dt, float ros_dt)
                "].  Topic may not exist.");
   }
   render_panel_->getRenderWindow()->update();
+  render_texture_->update();
 }
 
 bool CameraPub::updateCamera()
@@ -476,8 +485,8 @@ bool CameraPub::updateCamera()
   double fx = info->P[0];
   double fy = info->P[5];
 
-  float win_width = render_panel_->width();
-  float win_height = render_panel_->height();
+  float win_width = render_texture_->getWidth();
+  float win_height = render_texture_->getHeight();
   float zoom_x = 1.0;
   float zoom_y = zoom_x;
 
