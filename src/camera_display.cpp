@@ -207,8 +207,7 @@ void CameraPub::onInitialize()
   video_publisher_ = new video_export::VideoPublisher();
 
   render_panel_ = new RenderPanel();
-  render_panel_->getRenderWindow()->setAutoUpdated(false);
-  render_panel_->getRenderWindow()->setActive(false);
+
   render_panel_->resize(640, 480);
   render_panel_->initialize(context_->getSceneManager(), context_);
 
@@ -231,18 +230,22 @@ void CameraPub::onInitialize()
 
   render_texture_->getViewport(0)->setClearEveryFrame(true);
   render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
+
+  render_panel_->setOverlaysEnabled(false);
   render_texture_->getViewport(0)->setOverlaysEnabled(false);
+
+  render_panel_->getRenderWindow()->setAutoUpdated(false);
+  render_texture_->setAutoUpdated(false);
+
+  render_panel_->getRenderWindow()->setActive(false);
+  render_texture_->setActive(false);
 
   render_panel_->getRenderWindow()->addListener(this);
   // render_texture_->addListener(this);
-  // TODO(lucasw) this may not be right
-  // render_texture_->setAutoUpdated(false);
-  ////
 
   setAssociatedWidget(render_panel_);
-
   render_panel_->setAutoRender(false);
-  render_panel_->setOverlaysEnabled(false);
+
   render_panel_->getCamera()->setNearClipDistance(0.01f);
   camera_->setNearClipDistance(0.01f);
   camera_->setPosition(0, 10, 15);
@@ -251,6 +254,7 @@ void CameraPub::onInitialize()
   // Thought this was optional but the plugin crashes without it
   vis_bit_ = context_->visibilityBits()->allocBit();
   render_panel_->getViewport()->setVisibilityMask(vis_bit_);
+  render_texture_->getViewport(0)->setVisibilityMask(vis_bit_);
 
   visibility_property_ = new DisplayGroupVisibilityProperty(
     vis_bit_, context_->getRootDisplayGroup(), this, "Visibility", true,
