@@ -96,7 +96,7 @@ protected:
   virtual void onEnable();
   virtual void onDisable();
 
-  RenderPanel* render_panel_;
+  // RenderPanel* render_panel_;
 
 private Q_SLOTS:
   void forceRender();

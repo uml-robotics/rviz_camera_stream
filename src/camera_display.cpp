@@ -37,7 +37,7 @@
 #include <rviz/properties/float_property.h>
 #include <rviz/properties/int_property.h>
 #include <rviz/properties/ros_topic_property.h>
-#include <rviz/render_panel.h>
+// #include <rviz/render_panel.h>
 #include <rviz/uniform_string_stream.h>
 #include <rviz/validate_floats.h>
 #include <OgreCamera.h>
@@ -160,7 +160,7 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
 
 CameraPub::CameraPub()
   : Display()
-  , render_panel_(0)
+  // , render_panel_(0)
   , new_caminfo_(false)
   , force_render_(false)
   , caminfo_ok_(false)
@@ -186,14 +186,14 @@ CameraPub::~CameraPub()
 {
   if (initialized())
   {
-    render_panel_->getRenderWindow()->removeListener(this);
-    // render_texture_->removeListener(this);
+    // render_panel_->getRenderWindow()->removeListener(this);
+    render_texture_->removeListener(this);
 
     unsubscribe();
 
     // TODO(lucasw) is this why the panel doesn't go away entirely, just looks minimized?
     // workaround. delete results in a later crash
-    render_panel_->hide();
+    // render_panel_->hide();
     // delete render_panel_;
 
     context_->visibilityBits()->freeBits(vis_bit_);
@@ -206,10 +206,10 @@ void CameraPub::onInitialize()
 
   video_publisher_ = new video_export::VideoPublisher();
 
-  render_panel_ = new RenderPanel();
+  // render_panel_ = new RenderPanel();
 
-  render_panel_->resize(640, 480);
-  render_panel_->initialize(context_->getSceneManager(), context_);
+  // render_panel_->resize(640, 480);
+  // render_panel_->initialize(context_->getSceneManager(), context_);
 
   std::stringstream ss;
   static int count = 0;
@@ -230,29 +230,29 @@ void CameraPub::onInitialize()
   render_texture_->getViewport(0)->setClearEveryFrame(true);
   render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
 
-  render_panel_->setOverlaysEnabled(false);
+  // render_panel_->setOverlaysEnabled(false);
   render_texture_->getViewport(0)->setOverlaysEnabled(false);
 
-  render_panel_->getRenderWindow()->setAutoUpdated(false);
+  // render_panel_->getRenderWindow()->setAutoUpdated(false);
   render_texture_->setAutoUpdated(false);
 
-  render_panel_->getRenderWindow()->setActive(false);
+  // render_panel_->getRenderWindow()->setActive(false);
   render_texture_->setActive(false);
 
-  render_panel_->getRenderWindow()->addListener(this);
-  // render_texture_->addListener(this);
+  // render_panel_->getRenderWindow()->addListener(this);
+  render_texture_->addListener(this);
 
-  setAssociatedWidget(render_panel_);
-  render_panel_->setAutoRender(false);
+  // setAssociatedWidget(render_panel_);
+  // render_panel_->setAutoRender(false);
 
-  render_panel_->getCamera()->setNearClipDistance(0.01f);
+  // render_panel_->getCamera()->setNearClipDistance(0.01f);
   camera_->setNearClipDistance(0.01f);
   camera_->setPosition(0, 10, 15);
   camera_->lookAt(0, 0, 0);
 
   // Thought this was optional but the plugin crashes without it
   vis_bit_ = context_->visibilityBits()->allocBit();
-  render_panel_->getViewport()->setVisibilityMask(vis_bit_);
+  // render_panel_->getViewport()->setVisibilityMask(vis_bit_);
   render_texture_->getViewport(0)->setVisibilityMask(vis_bit_);
 
   visibility_property_ = new DisplayGroupVisibilityProperty(
@@ -289,22 +289,21 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
       return;
     frame_id = current_caminfo_->header.frame_id;
   }
-  render_texture_->update();
 
-  // video_publisher_->publishFrame(render_panel_->getRenderWindow(), frame_id);
+  // render_texture_->update();
   video_publisher_->publishFrame(render_texture_, frame_id);
 }
 
 void CameraPub::onEnable()
 {
   subscribe();
-  render_panel_->getRenderWindow()->setActive(true);
+  // render_panel_->getRenderWindow()->setActive(true);
   render_texture_->setActive(true);
 }
 
 void CameraPub::onDisable()
 {
-  render_panel_->getRenderWindow()->setActive(false);
+  // render_panel_->getRenderWindow()->setActive(false);
   render_texture_->setActive(false);
   unsubscribe();
   clear();
@@ -377,7 +376,7 @@ void CameraPub::clear()
             "].  Topic may not exist.");
   // setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received");
 
-  render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
+  // render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
   camera_->setPosition(Ogre::Vector3(999999, 999999, 999999));
 }
 
@@ -407,7 +406,7 @@ void CameraPub::update(float wall_dt, float ros_dt)
                QString::fromStdString(caminfo_sub_.getTopic()) +
                "].  Topic may not exist.");
   }
-  render_panel_->getRenderWindow()->update();
+  // render_panel_->getRenderWindow()->update();
   render_texture_->update();
 }
 
@@ -462,7 +461,7 @@ bool CameraPub::updateCamera()
     render_texture_->getViewport(0)->setOverlaysEnabled(false);
     render_texture_->setAutoUpdated(false);
     render_texture_->setActive(false);
-    // render_texture_->addListener(this);
+    render_texture_->addListener(this);
   }
 
   Ogre::Vector3 position;
@@ -537,8 +536,8 @@ bool CameraPub::updateCamera()
     return false;
   }
 
-  render_panel_->getCamera()->setPosition(position);
-  render_panel_->getCamera()->setOrientation(orientation);
+  // render_panel_->getCamera()->setPosition(position);
+  // render_panel_->getCamera()->setOrientation(orientation);
   camera_->setPosition(position);
   camera_->setOrientation(orientation);
 
@@ -563,7 +562,7 @@ bool CameraPub::updateCamera()
 
   proj_matrix[3][2] = -1;
 
-  render_panel_->getCamera()->setCustomProjectionMatrix(true, proj_matrix);
+  // render_panel_->getCamera()->setCustomProjectionMatrix(true, proj_matrix);
   camera_->setCustomProjectionMatrix(true, proj_matrix);
 
   setStatus(StatusProperty::Ok, "Camera Info", "OK");
