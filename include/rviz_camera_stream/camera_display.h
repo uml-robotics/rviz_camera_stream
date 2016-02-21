@@ -36,11 +36,11 @@
 #include <OgreMaterial.h>
 #include <OgreRenderTargetListener.h>
 #include <OgreSharedPtr.h>
+#include <OgreTexture.h>
 
 # include <sensor_msgs/CameraInfo.h>
 
 # include "rviz/image/image_display_base.h"
-# include "rviz/render_panel.h"
 #endif
 
 namespace Ogre
@@ -95,8 +95,6 @@ protected:
   // overrides from Display
   virtual void onEnable();
   virtual void onDisable();
-
-  // RenderPanel* render_panel_;
 
 private Q_SLOTS:
   void forceRender();
