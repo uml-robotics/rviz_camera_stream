@@ -410,7 +410,7 @@ bool CameraPub::updateCamera()
     return false;
   }
 
-  // TODO(lucasw) this will make the img vs. texture size code below unnecessary 
+  // TODO(lucasw) this will make the img vs. texture size code below unnecessary
   if ((info->width != render_texture_->getWidth()) ||
       (info->height != render_texture_->getHeight()))
   {
