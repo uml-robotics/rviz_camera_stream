@@ -220,11 +220,19 @@ void CameraPub::onInitialize()
   render_panel_->resize(640, 480);
   render_panel_->initialize(context_->getSceneManager(), context_);
 
+  std::stringstream ss;
+  static int count = 0;
+  ss << "RvizCameraPubCamera" << count++;
+  camera_ = context_->getSceneManager()->createCamera(ss.str());
+
   setAssociatedWidget(render_panel_);
 
   render_panel_->setAutoRender(false);
   render_panel_->setOverlaysEnabled(false);
   render_panel_->getCamera()->setNearClipDistance(0.01f);
+  camera_->setNearClipDistance(0.01f);
+  camera_->setPosition(0, 10, 15);
+  camera_->lookAt(0, 0, 0);
 
   // caminfo_tf_filter_->connectInput(caminfo_sub_);
   // caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
@@ -251,7 +259,7 @@ void CameraPub::onInitialize()
       Ogre::PF_R8G8B8,
       Ogre::TU_RENDERTARGET);
   render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
-  render_texture_->addViewport(render_panel_->getCamera());
+  render_texture_->addViewport(camera_);
 
   render_texture_->getViewport(0)->setClearEveryFrame(true);
   render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
@@ -371,6 +379,7 @@ void CameraPub::clear()
   // setStatus(StatusProperty::Warn, "Camera Info", "No CameraInfo received");
 
   render_panel_->getCamera()->setPosition(Ogre::Vector3(999999, 999999, 999999));
+  camera_->setPosition(Ogre::Vector3(999999, 999999, 999999));
 }
 
 void CameraPub::update(float wall_dt, float ros_dt)
@@ -506,6 +515,8 @@ bool CameraPub::updateCamera()
 
   render_panel_->getCamera()->setPosition(position);
   render_panel_->getCamera()->setOrientation(orientation);
+  camera_->setPosition(position);
+  camera_->setOrientation(orientation);
 
   // calculate the projection matrix
   double cx = info->P[2];
@@ -529,6 +540,7 @@ bool CameraPub::updateCamera()
   proj_matrix[3][2] = -1;
 
   render_panel_->getCamera()->setCustomProjectionMatrix(true, proj_matrix);
+  camera_->setCustomProjectionMatrix(true, proj_matrix);
 
   setStatus(StatusProperty::Ok, "Camera Info", "OK");
 

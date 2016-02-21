@@ -143,6 +143,7 @@ private:
 
   // render to texture
   // from http://www.ogre3d.org/tikiwiki/tiki-index.php?page=Intermediate+Tutorial+7
+  Ogre::Camera* camera_;
   Ogre::TexturePtr rtt_texture_;
   Ogre::RenderTexture* render_texture_;
 };
