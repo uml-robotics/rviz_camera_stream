@@ -161,7 +161,6 @@ bool validateFloats(const sensor_msgs::CameraInfo& msg)
 CameraPub::CameraPub()
   : Display()
   , render_panel_(0)
-  // , caminfo_tf_filter_(0)
   , new_caminfo_(false)
   , force_render_(false)
   , caminfo_ok_(false)
@@ -191,14 +190,11 @@ CameraPub::~CameraPub()
     render_panel_->getRenderWindow()->removeListener(this);
 
     unsubscribe();
-    // caminfo_tf_filter_->clear();
 
     // TODO(lucasw) is this why the panel doesn't go away entirely, just looks minimized?
     // workaround. delete results in a later crash
     render_panel_->hide();
     // delete render_panel_;
-
-    // delete caminfo_tf_filter_;
 
     context_->visibilityBits()->freeBits(vis_bit_);
   }
@@ -209,10 +205,6 @@ void CameraPub::onInitialize()
   Display::onInitialize();
 
   video_publisher_ = new video_export::VideoPublisher();
-
-  // caminfo_tf_filter_ = new tf::MessageFilter<sensor_msgs::CameraInfo>(
-  //    *context_->getTFClient(), fixed_frame_.toStdString(),
-  //    queue_size_property_->getInt(), update_nh_);
 
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->setAutoUpdated(false);
@@ -256,10 +248,7 @@ void CameraPub::onInitialize()
   camera_->setPosition(0, 10, 15);
   camera_->lookAt(0, 0, 0);
 
-  // caminfo_tf_filter_->connectInput(caminfo_sub_);
-  // caminfo_tf_filter_->registerCallback(boost::bind(&CameraPub::caminfoCallback, this, _1));
-  // context_->getFrameManager()->registerFilterForTransformStatusCheck(caminfo_tf_filter_, this);
-
+  // Thought this was optional but the plugin crashes without it
   vis_bit_ = context_->visibilityBits()->allocBit();
   render_panel_->getViewport()->setVisibilityMask(vis_bit_);
 
@@ -369,7 +358,6 @@ void CameraPub::forceRender()
 
 void CameraPub::updateQueueSize()
 {
-  // caminfo_tf_filter_->setQueueSize((uint32_t) queue_size_property_->getInt());
 }
 
 void CameraPub::clear()
@@ -574,7 +562,6 @@ void CameraPub::caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
 void CameraPub::fixedFrameChanged()
 {
   std::string targetFrame = fixed_frame_.toStdString();
-  // caminfo_tf_filter_->setTargetFrame(targetFrame);
   Display::fixedFrameChanged();
 }
 

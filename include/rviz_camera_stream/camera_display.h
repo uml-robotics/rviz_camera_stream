@@ -39,9 +39,6 @@
 
 # include <sensor_msgs/CameraInfo.h>
 
-# include <message_filters/subscriber.h>
-# include <tf/message_filter.h>
-
 # include "rviz/image/image_display_base.h"
 # include "rviz/render_panel.h"
 #endif
@@ -120,8 +117,6 @@ private:
   void updateStatus();
 
   ros::Subscriber caminfo_sub_;
-  // message_filters::Subscriber<sensor_msgs::CameraInfo> caminfo_sub_;
-  // tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 
   RosTopicProperty* topic_property_;
   RosTopicProperty* camera_info_property_;
