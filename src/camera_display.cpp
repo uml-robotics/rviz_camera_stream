@@ -186,8 +186,8 @@ CameraPub::~CameraPub()
 {
   if (initialized())
   {
-    // render_texture_->removeListener(this);
     render_panel_->getRenderWindow()->removeListener(this);
+    // render_texture_->removeListener(this);
 
     unsubscribe();
 
@@ -227,7 +227,6 @@ void CameraPub::onInitialize()
       Ogre::TU_RENDERTARGET);
   render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
   render_texture_->addViewport(camera_);
-
   render_texture_->getViewport(0)->setClearEveryFrame(true);
   render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
 
