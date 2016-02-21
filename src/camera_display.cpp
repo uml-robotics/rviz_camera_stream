@@ -441,6 +441,30 @@ bool CameraPub::updateCamera()
     return false;
   }
 
+  // TODO(lucasw) this will make the img vs. texture size code below unnecessary 
+  if ((info->width != render_texture_->getWidth()) ||
+      (info->height != render_texture_->getHeight()))
+  {
+    rtt_texture_ = Ogre::TextureManager::getSingleton().createManual(
+        "RttTex",
+        Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+        Ogre::TEX_TYPE_2D,
+        info->width, info->height,
+        0,
+        Ogre::PF_R8G8B8,
+        Ogre::TU_RENDERTARGET);
+    render_texture_ = rtt_texture_->getBuffer()->getRenderTarget();
+    render_texture_->addViewport(camera_);
+    render_texture_->getViewport(0)->setClearEveryFrame(true);
+    render_texture_->getViewport(0)->setBackgroundColour(Ogre::ColourValue::Black);
+    render_texture_->getViewport(0)->setVisibilityMask(vis_bit_);
+
+    render_texture_->getViewport(0)->setOverlaysEnabled(false);
+    render_texture_->setAutoUpdated(false);
+    render_texture_->setActive(false);
+    // render_texture_->addListener(this);
+  }
+
   Ogre::Vector3 position;
   Ogre::Quaternion orientation;
   context_->getFrameManager()->getTransform(info->header.frame_id, info->header.stamp, position, orientation);
