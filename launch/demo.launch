@@ -10,15 +10,28 @@
   <node pkg="tf" type="static_transform_publisher" name="camera_broadcaster"
       args="0.1 0.1 -0.5 0 0 0 1 map camera 10" />
 
-  <node pkg="vimjay" type="image.py" name="image_pub" 
+  <!--
+  <node pkg="vimjay" type="image.py" name="image_pub"
       args="$(find vimjay)/data/gradient_radial.png"
       if="true" >
     <param name="frame_id" value="camera" />
     <param name="use_image" value="false" />
   </node>
+  -->
+  <node name="camera_info" pkg="rostopic" type="rostopic"
+      args="pub /camera_info sensor_msgs/CameraInfo
+     '{header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: ''},
+      height: 480, width: 640, distortion_model: 'plumb_bob',
+      D: [0],
+      K: [500.0, 0.0, 320, 0.0, 500.0, 240.0, 0.0, 0.0, 1.0],
+      R: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+      P: [500.0, 0.0, 320, 0.0, 0.0, 500, 240, 0.0, 0.0, 0.0, 1.0, 0.0],
+      binning_x: 0, binning_y: 0,
+      roi: {x_offset: 0, y_offset: 0, height: 480, width: 640, do_rectify: false}}' -r 2"
+      output="screen"/>
 
   <node name="usb_cam" pkg="usb_cam" type="usb_cam_node"
-      output="screen" 
+      output="screen"
       if="false" >
     <param name="image_width" value="640" />
     <param name="image_height" value="480" />
