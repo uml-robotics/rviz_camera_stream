@@ -161,9 +161,15 @@ CameraPub::CameraPub()
   : Display()
   , new_caminfo_(false)
   , force_render_(false)
+  , trigger_activated_(false)
+  , last_image_publication_time_(0)
   , caminfo_ok_(false)
   , video_publisher_(0)
 {
+  ros::NodeHandle nh_("~");
+  trigger_service_ = nh_.advertiseService("/rviz_camera_trigger",
+      &CameraPub::triggerCallback, this);
+
   topic_property_ = new RosTopicProperty("Image Topic", "",
       QString::fromStdString(ros::message_traits::datatype<sensor_msgs::Image>()),
       "sensor_msgs::Image topic to publish to.", this, SLOT(updateTopic()));
@@ -178,6 +184,12 @@ CameraPub::CameraPub()
       " image data, but it can greatly increase memory usage if the messages are big.",
                                           this, SLOT(updateQueueSize()));
   queue_size_property_->setMin(1);
+
+  frame_rate_property_ = new FloatProperty("Frame Rate", -1,
+      "Sets target frame rate. Set to < 0 for maximum speed, set to 0 to stop, you can "
+      "trigger single images with the /rviz_camera_trigger service.",
+                                           this, SLOT(updateFrameRate()));
+  frame_rate_property_->setMin(-1);
 }
 
 CameraPub::~CameraPub()
@@ -190,6 +202,15 @@ CameraPub::~CameraPub()
 
     context_->visibilityBits()->freeBits(vis_bit_);
   }
+}
+
+bool CameraPub::triggerCallback(std_srvs::TriggerRequest& req,
+                     std_srvs::TriggerResponse& res)
+{
+  trigger_activated_ = true;
+  res.success = true;
+  res.message = "New image was triggered";
+  return true;
 }
 
 void CameraPub::onInitialize()
@@ -254,8 +275,23 @@ void CameraPub::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 
 void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  // TODO(lucasw) allow this to be throttled down
   // Publish the rendered window video stream
+  const ros::Time cur_time = ros::Time::now();
+  ros::Duration elapsed_duration = cur_time - last_image_publication_time_;
+  const float frame_rate = frame_rate_property_->getFloat();
+  bool time_is_up = (frame_rate > 0.0) && (elapsed_duration.toSec() > 1.0 / frame_rate);
+  // We want frame rate to be unlimited if we enter zero or negative values for frame rate
+  if (frame_rate < 0.0)
+  {
+    time_is_up = true;
+  }
+  if (!(trigger_activated_ || time_is_up))
+  {
+    return;
+  }
+  trigger_activated_ = false;
+  last_image_publication_time_ = cur_time;
+
   std::string frame_id;
   {
     boost::mutex::scoped_lock lock(caminfo_mutex_);
@@ -331,6 +367,10 @@ void CameraPub::forceRender()
 }
 
 void CameraPub::updateQueueSize()
+{
+}
+
+void CameraPub::updateFrameRate()
 {
 }
 
