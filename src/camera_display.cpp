@@ -37,6 +37,7 @@
 #include <rviz/properties/float_property.h>
 #include <rviz/properties/int_property.h>
 #include <rviz/properties/ros_topic_property.h>
+#include <rviz/properties/color_property.h>
 #include <rviz/uniform_string_stream.h>
 #include <rviz/validate_floats.h>
 #include <OgreCamera.h>
@@ -190,6 +191,10 @@ CameraPub::CameraPub()
       "trigger single images with the /rviz_camera_trigger service.",
                                            this, SLOT(updateFrameRate()));
   frame_rate_property_->setMin(-1);
+
+  background_color_property_ = new ColorProperty("Background Color", Qt::black,
+      "Sets background color, values from 0.0 to 1.0.",
+                                           this, SLOT(updateBackgroundColor()));
 }
 
 CameraPub::~CameraPub()
@@ -291,6 +296,7 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
   }
   trigger_activated_ = false;
   last_image_publication_time_ = cur_time;
+  render_texture_->getViewport(0)->setBackgroundColour(background_color_property_->getOgreColor());
 
   std::string frame_id;
   {
@@ -371,6 +377,10 @@ void CameraPub::updateQueueSize()
 }
 
 void CameraPub::updateFrameRate()
+{
+}
+
+void CameraPub::updateBackgroundColor()
 {
 }
 
