@@ -167,8 +167,8 @@ CameraPub::CameraPub()
   , video_publisher_(0)
 {
   ros::NodeHandle nh_("~");
-  trigger_service_ = nh_.advertiseService("/rviz_camera_trigger",
-      &CameraPub::triggerCallback, this);
+  // trigger_service_ = nh_.advertiseService("/rviz_camera_trigger",
+  //     &CameraPub::triggerCallback, this);
 
   topic_property_ = new RosTopicProperty("Image Topic", "",
       QString::fromStdString(ros::message_traits::datatype<sensor_msgs::Image>()),
