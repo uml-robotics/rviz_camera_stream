@@ -119,11 +119,13 @@ public:
       return false;
     }
     // RenderTarget::writeContentsToFile() used as example
+    // TODO(lucasw) make things const that can be
     int height = render_object->getHeight();
     int width = render_object->getWidth();
-    // the results of pixel format have to be used to determine
-    // image.encoding
+    // the suggested pixel format is most efficient, but other ones
+    // can be used.
     Ogre::PixelFormat pf = render_object->suggestPixelFormat();
+    // Ogre::PixelFormat pf = Ogre::PF_R8G8B8;
     uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
     uint datasize = width * height * pixelsize;
 
@@ -140,13 +142,19 @@ public:
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    if (pixelsize == 3)
-      image.encoding = sensor_msgs::image_encodings::RGB8;  // would break if pf changes
-    else if (pixelsize == 4)
-      image.encoding = sensor_msgs::image_encodings::RGBA8;  // would break if pf changes
+    // TODO(lucasw) why the RGB BGR reversal- it must be an endian issue
+    if (pf == Ogre::PF_R8G8B8)
+      image.encoding = sensor_msgs::image_encodings::BGR8;
+    else if (pf == Ogre::PF_B8G8R8)
+      image.encoding = sensor_msgs::image_encodings::RGB8;
+    else if ((pf == Ogre::PF_R8G8B8A8) || (pf == Ogre::PF_X8R8G8B8))
+      image.encoding = sensor_msgs::image_encodings::BGRA8;
+    else if ((pf == Ogre::PF_B8G8R8A8) || (pf == Ogre::PF_X8B8G8R8))
+      image.encoding = sensor_msgs::image_encodings::RGBA8;
+    // TODO(lucasw) support more encodings
     else
     {
-      ROS_ERROR_STREAM("unknown pixe format " << pixelsize << " " << pf);
+      ROS_ERROR_STREAM("unknown pixel format " << pixelsize << " " << pf);
     }
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(datasize);
