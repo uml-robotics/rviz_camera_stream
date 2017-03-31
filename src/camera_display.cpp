@@ -68,9 +68,10 @@ class VideoPublisher
 private:
   ros::NodeHandle nh_;
   image_transport::ImageTransport it_;
-  image_transport::Publisher pub_;
+  image_transport::CameraPublisher pub_;
   uint image_id_;
 public:
+  sensor_msgs::CameraInfo camera_info_;
   VideoPublisher() :
     it_(nh_),
     image_id_(0)
@@ -104,7 +105,7 @@ public:
 
   void advertise(std::string topic)
   {
-    pub_ = it_.advertise(topic, 1);
+    pub_ = it_.advertiseCamera(topic, 1);
   }
 
   // bool publishFrame(Ogre::RenderWindow * render_object, const std::string frame_id)
@@ -176,7 +177,8 @@ public:
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(datasize);
     memcpy(&image.data[0], data, datasize);
-    pub_.publish(image);
+    camera_info_.header = image.header;
+    pub_.publish(image, camera_info_);
 
     OGRE_FREE(data, Ogre::MEMCATEGORY_RENDERSYS);
   }
@@ -369,6 +371,7 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
     if (!current_caminfo_)
       return;
     frame_id = current_caminfo_->header.frame_id;
+    video_publisher_->camera_info_ = *current_caminfo_;
   }
 
   int encoding_option = image_encoding_property_->getOptionInt();
