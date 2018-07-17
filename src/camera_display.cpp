@@ -142,15 +142,28 @@ public:
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    // TODO(lucasw) why the RGB BGR reversal- it must be an endian issue
-    if (pf == Ogre::PF_R8G8B8)
+    if (pf == Ogre::PF_BYTE_BGR)
       image.encoding = sensor_msgs::image_encodings::BGR8;
-    else if (pf == Ogre::PF_B8G8R8)
+    else if (pf == Ogre::PF_BYTE_RGB)
       image.encoding = sensor_msgs::image_encodings::RGB8;
-    else if ((pf == Ogre::PF_R8G8B8A8) || (pf == Ogre::PF_X8R8G8B8))
+    else if (pf == Ogre::PF_BYTE_BGRA)
       image.encoding = sensor_msgs::image_encodings::BGRA8;
-    else if ((pf == Ogre::PF_B8G8R8A8) || (pf == Ogre::PF_X8B8G8R8))
+    else if (pf == Ogre::PF_BYTE_RGBA)
       image.encoding = sensor_msgs::image_encodings::RGBA8;
+    // There is no PF_BYTE for this or PF_X8R8G8B8
+    else if (pf == Ogre::PF_X8R8G8B8)
+#if OGRE_ENDIAN == OGRE_ENDIAN_BIG
+      image.encoding = sensor_msgs::image_encodings::RGBA8;
+#else
+      image.encoding = sensor_msgs::image_encodings::BGRA8;
+#endif
+    else if (pf == Ogre::PF_X8B8G8R8)
+#if OGRE_ENDIAN == OGRE_ENDIAN_BIG
+      image.encoding = sensor_msgs::image_encodings::BGRA8;
+#else
+      image.encoding = sensor_msgs::image_encodings::RGBA8;
+#endif
+
     // TODO(lucasw) support more encodings
     else
     {
