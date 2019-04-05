@@ -249,6 +249,10 @@ CameraPub::CameraPub()
   image_encoding_property_->addOption("mono8",4);
   image_encoding_property_->addOption("mono16",5);
 
+  near_clip_property_ = new FloatProperty("Near Clip Distance", 0.01, "Set the near clip distance", this, SLOT(updateNearClipDistance()));
+  near_clip_property_->setMin(0.01);
+  
+
 }
 
 CameraPub::~CameraPub()
@@ -451,6 +455,11 @@ void CameraPub::updateQueueSize()
 void CameraPub::updateFrameRate()
 {
 }
+
+void CameraPub::updateNearClipDistance()
+{
+}
+
 
 void CameraPub::updateBackgroundColor()
 {
@@ -665,15 +674,19 @@ bool CameraPub::updateCamera()
     return false;
   }
 
+  const float near_clip_distance = near_clip_property_->getFloat();
+
   camera_->setPosition(position);
   camera_->setOrientation(orientation);
+  camera_->setNearClipDistance(near_clip_distance);
 
   // calculate the projection matrix
   double cx = info->P[2];
   double cy = info->P[6];
 
   double far_plane = 100;
-  double near_plane = 0.01;
+  //double near_plane = 0.01;
+  double near_plane = near_clip_distance;
 
   Ogre::Matrix4 proj_matrix;
   proj_matrix = Ogre::Matrix4::ZERO;
