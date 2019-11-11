@@ -16,8 +16,6 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>interactive_markers</build_depend>
-  <build_depend>ogre</build_depend>
-  <build_depend>ogre_tools</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>roslint</build_depend>
   <build_depend>rviz</build_depend>
