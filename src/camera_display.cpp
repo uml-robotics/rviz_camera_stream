@@ -108,7 +108,7 @@ public:
   }
 
   // bool publishFrame(Ogre::RenderWindow * render_object, const std::string frame_id)
-  bool publishFrame(Ogre::RenderTexture * render_object, const std::string frame_id)
+  bool publishFrame(Ogre::RenderTexture * render_object, const std::string frame_id, int encoding_option)
   {
     if (pub_.getTopic() == "")
     {
@@ -124,8 +124,39 @@ public:
     int width = render_object->getWidth();
     // the suggested pixel format is most efficient, but other ones
     // can be used.
-    Ogre::PixelFormat pf = render_object->suggestPixelFormat();
-    // Ogre::PixelFormat pf = Ogre::PF_R8G8B8;
+    sensor_msgs::Image image;
+    Ogre::PixelFormat pf = Ogre::PF_BYTE_RGB;
+    switch(encoding_option)
+    {
+    case 0:
+    	pf = Ogre::PF_BYTE_RGB;
+    	image.encoding = sensor_msgs::image_encodings::RGB8;
+    	break;
+    case 1:
+    	pf = Ogre::PF_BYTE_RGBA;
+    	image.encoding = sensor_msgs::image_encodings::RGBA8;
+    	break;
+    case 2:
+		pf = Ogre::PF_BYTE_BGR;
+		image.encoding = sensor_msgs::image_encodings::BGR8;
+		break;
+	case 3:
+		pf = Ogre::PF_BYTE_BGRA;
+		image.encoding = sensor_msgs::image_encodings::BGRA8;
+		break;
+	case 4:
+		pf = Ogre::PF_L8;
+		image.encoding = sensor_msgs::image_encodings::MONO8;
+		break;
+	case 5:
+		pf = Ogre::PF_L16;
+		image.encoding = sensor_msgs::image_encodings::MONO16;
+		break;
+	default:
+		ROS_ERROR_STREAM("Invalid image encoding value specified");
+		return false;
+    }
+
     uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
     uint datasize = width * height * pixelsize;
 
@@ -135,40 +166,13 @@ public:
     Ogre::PixelBox pb(width, height, 1, pf, data);
     render_object->copyContentsToMemory(pb, Ogre::RenderTarget::FB_AUTO);
 
-    sensor_msgs::Image image;
+
     image.header.stamp = ros::Time::now();
     image.header.seq = image_id_++;
     image.header.frame_id = frame_id;
     image.height = height;
     image.width = width;
     image.step = pixelsize * width;
-    if (pf == Ogre::PF_BYTE_BGR)
-      image.encoding = sensor_msgs::image_encodings::BGR8;
-    else if (pf == Ogre::PF_BYTE_RGB)
-      image.encoding = sensor_msgs::image_encodings::RGB8;
-    else if (pf == Ogre::PF_BYTE_BGRA)
-      image.encoding = sensor_msgs::image_encodings::BGRA8;
-    else if (pf == Ogre::PF_BYTE_RGBA)
-      image.encoding = sensor_msgs::image_encodings::RGBA8;
-    // There is no PF_BYTE for this or PF_X8R8G8B8
-    else if (pf == Ogre::PF_X8R8G8B8)
-#if OGRE_ENDIAN == OGRE_ENDIAN_BIG
-      image.encoding = sensor_msgs::image_encodings::RGBA8;
-#else
-      image.encoding = sensor_msgs::image_encodings::BGRA8;
-#endif
-    else if (pf == Ogre::PF_X8B8G8R8)
-#if OGRE_ENDIAN == OGRE_ENDIAN_BIG
-      image.encoding = sensor_msgs::image_encodings::BGRA8;
-#else
-      image.encoding = sensor_msgs::image_encodings::RGBA8;
-#endif
-
-    // TODO(lucasw) support more encodings
-    else
-    {
-      ROS_ERROR_STREAM("unknown pixel format " << pixelsize << " " << pf);
-    }
     image.is_bigendian = (OGRE_ENDIAN == OGRE_ENDIAN_BIG);
     image.data.resize(datasize);
     memcpy(&image.data[0], data, datasize);
@@ -235,6 +239,20 @@ CameraPub::CameraPub()
   background_color_property_ = new ColorProperty("Background Color", Qt::black,
       "Sets background color, values from 0.0 to 1.0.",
                                            this, SLOT(updateBackgroundColor()));
+
+  image_encoding_property_ = new EnumProperty("Image Encoding", "rgb8",
+		  "Sets the image encoding", this, SLOT(updateImageEncoding()));
+  image_encoding_property_->addOption("rgb8",0);
+  image_encoding_property_->addOption("rgba8",1);
+  image_encoding_property_->addOption("bgr8",2);
+  image_encoding_property_->addOption("bgra8",3);
+  image_encoding_property_->addOption("mono8",4);
+  image_encoding_property_->addOption("mono16",5);
+
+  near_clip_property_ = new FloatProperty("Near Clip Distance", 0.01, "Set the near clip distance", this, SLOT(updateNearClipDistance()));
+  near_clip_property_->setMin(0.01);
+  
+
 }
 
 CameraPub::~CameraPub()
@@ -353,8 +371,10 @@ void CameraPub::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
     frame_id = current_caminfo_->header.frame_id;
   }
 
+  int encoding_option = image_encoding_property_->getOptionInt();
+
   // render_texture_->update();
-  video_publisher_->publishFrame(render_texture_, frame_id);
+  video_publisher_->publishFrame(render_texture_, frame_id, encoding_option);
 }
 
 void CameraPub::onEnable()
@@ -436,6 +456,11 @@ void CameraPub::updateFrameRate()
 {
 }
 
+void CameraPub::updateNearClipDistance()
+{
+}
+
+
 void CameraPub::updateBackgroundColor()
 {
 }
@@ -471,6 +496,10 @@ void CameraPub::updateDisplayNamespace()
 
   setStatus(StatusProperty::Ok, "Display namespace", "OK");
   updateTopic();
+}
+
+void CameraPub::updateImageEncoding()
+{
 }
 
 void CameraPub::clear()
@@ -658,15 +687,19 @@ bool CameraPub::updateCamera()
     return false;
   }
 
+  const float near_clip_distance = near_clip_property_->getFloat();
+
   camera_->setPosition(position);
   camera_->setOrientation(orientation);
+  camera_->setNearClipDistance(near_clip_distance);
 
   // calculate the projection matrix
   double cx = info->P[2];
   double cy = info->P[6];
 
   double far_plane = 100;
-  double near_plane = 0.01;
+  //double near_plane = 0.01;
+  double near_plane = near_clip_distance;
 
   Ogre::Matrix4 proj_matrix;
   proj_matrix = Ogre::Matrix4::ZERO;

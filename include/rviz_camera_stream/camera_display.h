@@ -108,6 +108,8 @@ private Q_SLOTS:
   virtual void updateFrameRate();
   virtual void updateBackgroundColor();
   virtual void updateDisplayNamespace();
+  virtual void updateImageEncoding();
+  virtual void updateNearClipDistance();
 
 private:
   std::string camera_trigger_name_;
@@ -138,6 +140,8 @@ private:
 
   FloatProperty* frame_rate_property_;
   ColorProperty* background_color_property_;
+  EnumProperty* image_encoding_property_;
+  FloatProperty* near_clip_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
   boost::mutex caminfo_mutex_;
