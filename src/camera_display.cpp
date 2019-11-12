@@ -127,35 +127,35 @@ public:
     // can be used.
     sensor_msgs::Image image;
     Ogre::PixelFormat pf = Ogre::PF_BYTE_RGB;
-    switch(encoding_option)
+    switch (encoding_option)
     {
-    case 0:
-    	pf = Ogre::PF_BYTE_RGB;
-    	image.encoding = sensor_msgs::image_encodings::RGB8;
-    	break;
-    case 1:
-    	pf = Ogre::PF_BYTE_RGBA;
-    	image.encoding = sensor_msgs::image_encodings::RGBA8;
-    	break;
-    case 2:
-		pf = Ogre::PF_BYTE_BGR;
-		image.encoding = sensor_msgs::image_encodings::BGR8;
-		break;
-	case 3:
-		pf = Ogre::PF_BYTE_BGRA;
-		image.encoding = sensor_msgs::image_encodings::BGRA8;
-		break;
-	case 4:
-		pf = Ogre::PF_L8;
-		image.encoding = sensor_msgs::image_encodings::MONO8;
-		break;
-	case 5:
-		pf = Ogre::PF_L16;
-		image.encoding = sensor_msgs::image_encodings::MONO16;
-		break;
-	default:
-		ROS_ERROR_STREAM("Invalid image encoding value specified");
-		return false;
+      case 0:
+        pf = Ogre::PF_BYTE_RGB;
+        image.encoding = sensor_msgs::image_encodings::RGB8;
+        break;
+      case 1:
+        pf = Ogre::PF_BYTE_RGBA;
+        image.encoding = sensor_msgs::image_encodings::RGBA8;
+        break;
+      case 2:
+        pf = Ogre::PF_BYTE_BGR;
+        image.encoding = sensor_msgs::image_encodings::BGR8;
+        break;
+      case 3:
+        pf = Ogre::PF_BYTE_BGRA;
+        image.encoding = sensor_msgs::image_encodings::BGRA8;
+        break;
+      case 4:
+        pf = Ogre::PF_L8;
+        image.encoding = sensor_msgs::image_encodings::MONO8;
+        break;
+      case 5:
+        pf = Ogre::PF_L16;
+        image.encoding = sensor_msgs::image_encodings::MONO16;
+        break;
+      default:
+        ROS_ERROR_STREAM("Invalid image encoding value specified");
+        return false;
     }
 
     uint pixelsize = Ogre::PixelUtil::getNumElemBytes(pf);
@@ -243,18 +243,17 @@ CameraPub::CameraPub()
                                            this, SLOT(updateBackgroundColor()));
 
   image_encoding_property_ = new EnumProperty("Image Encoding", "rgb8",
-		  "Sets the image encoding", this, SLOT(updateImageEncoding()));
-  image_encoding_property_->addOption("rgb8",0);
-  image_encoding_property_->addOption("rgba8",1);
-  image_encoding_property_->addOption("bgr8",2);
-  image_encoding_property_->addOption("bgra8",3);
-  image_encoding_property_->addOption("mono8",4);
-  image_encoding_property_->addOption("mono16",5);
+      "Sets the image encoding", this, SLOT(updateImageEncoding()));
+  image_encoding_property_->addOption("rgb8", 0);
+  image_encoding_property_->addOption("rgba8", 1);
+  image_encoding_property_->addOption("bgr8", 2);
+  image_encoding_property_->addOption("bgra8", 3);
+  image_encoding_property_->addOption("mono8", 4);
+  image_encoding_property_->addOption("mono16", 5);
 
-  near_clip_property_ = new FloatProperty("Near Clip Distance", 0.01, "Set the near clip distance", this, SLOT(updateNearClipDistance()));
+  near_clip_property_ = new FloatProperty("Near Clip Distance", 0.01, "Set the near clip distance",
+      this, SLOT(updateNearClipDistance()));
   near_clip_property_->setMin(0.01);
-  
-
 }
 
 CameraPub::~CameraPub()
@@ -701,7 +700,6 @@ bool CameraPub::updateCamera()
   double cy = info->P[6];
 
   double far_plane = 100;
-  //double near_plane = 0.01;
   double near_plane = near_clip_distance;
 
   Ogre::Matrix4 proj_matrix;
