@@ -1,0 +1,32 @@
+<package>
+  <name>rviz_camera_stream</name>
+  <version>0.0.1</version>
+  <description>
+    Modified RViz camera plugin.
+    Allows to output the rviz display view as an Image topic.
+  </description>
+
+  <maintainer email="lucasw_backwards@gmail.com">Lucas Walter</maintainer>
+  <author email="tbd@tbd.com">Mikhail Medvedev</author>
+
+  <license>BSD</license>
+
+  <url type="website">https://github.com/lucasw/rviz_camera_stream</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>interactive_markers</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>roslint</build_depend>
+  <build_depend>rviz</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>rviz</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+  <export>
+      <rviz plugin="${prefix}/plugin_description.xml"/>
+  </export>
+</package>

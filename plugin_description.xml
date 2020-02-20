@@ -1,10 +1,14 @@
 <library path="lib/librviz_camera_stream">
-
-  <class name="rviz_camera_stream/Camera" type="rviz_mod::CameraDisplay" base_class_type="rviz::Display">
+  <class name="rviz_camera_stream/CameraPub"
+         type="rviz::CameraPub"
+         base_class_type="rviz::Display">
     <description>
       Same as standard RViz camera, with addition of the ability to
       publish the rendered image to the Image topic.
     </description>
+    <message_type>sensor_msgs/Image</message_type>
+    <message_type>sensor_msgs/CompressedImage</message_type>
+    <message_type>theora_image_transport/Packet</message_type>
   </class>
 
 </library>

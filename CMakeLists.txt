@@ -1,41 +1,74 @@
-cmake_minimum_required(VERSION 2.4.6)
-include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
-include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
-set(ROS_BUILD_TYPE RelWithDebInfo)
-rosbuild_init()
-rosbuild_add_boost_directories()
+cmake_minimum_required(VERSION 2.8.3)
+project(rviz_camera_stream)
 
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  image_transport
+  roslint
+  rviz
+  sensor_msgs
+)
+
+roslint_cpp()
 ## Compiler flags
-if(CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS "-std=c++0x")  ## Enable C++11
-  #set(CMAKE_CXX_FLAGS "-O2")        ## Optimize
-  #set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+# if(CMAKE_COMPILER_IS_GNUCXX)
+#  set(CMAKE_CXX_FLAGS "-std=c++0x")  ## Enable C++11
+# endif()
+
+## This plugin includes Qt widgets, so we must include Qt.
+## We'll use the version that rviz used so they are compatible.
+if(rviz_QT_VERSION VERSION_LESS "5")
+  message(STATUS "Using Qt4 based on the rviz_QT_VERSION: ${rviz_QT_VERSION}")
+  find_package(Qt4 ${rviz_QT_VERSION} EXACT REQUIRED QtCore QtGui)
+  ## pull in all required include dirs, define QT_LIBRARIES, etc.
+  include(${QT_USE_FILE})
+else()
+  message(STATUS "Using Qt5 based on the rviz_QT_VERSION: ${rviz_QT_VERSION}")
+  find_package(Qt5 ${rviz_QT_VERSION} EXACT REQUIRED Core Widgets)
+  ## make target_link_libraries(${QT_LIBRARIES}) pull in all required dependencies
+  set(QT_LIBRARIES Qt5::Widgets)
 endif()
-
-find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
-include(${QT_USE_FILE})
-
-pkg_check_modules(OGRE OGRE) 
-include_directories( ${OGRE_INCLUDE_DIRS} ) 
-link_directories( ${OGRE_LIBRARY_DIRS} ) 
 
 ## Avoid defining "emit", "slots",
 ## etc for Qt signals because they can conflict with boost signals
 add_definitions(-DQT_NO_KEYWORDS)
 
-qt4_wrap_cpp(MOC_FILES
-  src/camera_display.h
-  )
+catkin_package(
+)
 
-set(SOURCE_FILES
+include_directories(
+  include
+  ${catkin_INCLUDE_DIRS}
+)
+
+if(rviz_QT_VERSION VERSION_LESS "5")
+qt4_wrap_cpp(MOC_FILES
+  include/rviz_camera_stream/camera_display.h
+  )
+else()
+qt5_wrap_cpp(MOC_FILES
+  include/rviz_camera_stream/camera_display.h
+  )
+endif()
+
+add_library(rviz_camera_stream
   src/camera_display.cpp
   ${MOC_FILES}
-  )
+)
 
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+target_link_libraries(rviz_camera_stream
+  ${catkin_LIBRARIES}
+  ${QT_LIBRARIES}
+)
 
-rosbuild_add_library(${PROJECT_NAME} ${SOURCE_FILES})
-set_target_properties(${PROJECT_NAME} PROPERTIES
-  DEFINE_SYMBOL THIS_PACKAGE_NAME="${PROJECT_NAME}")
+# install
+install (TARGETS rviz_camera_stream
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
-target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OGRE_LIBRARIES})
+install(FILES
+  plugin_description.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
