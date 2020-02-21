@@ -607,7 +607,7 @@ bool CameraPub::updateCamera()
   Ogre::Vector3 position;
   Ogre::Quaternion orientation;
   const bool success = context_->getFrameManager()->getTransform(
-      info->header.frame_id, info->header.stamp, position, orientation);
+      info->header.frame_id, ros::Time(0), position, orientation);
   if (!success)
   {
     std::string error;
