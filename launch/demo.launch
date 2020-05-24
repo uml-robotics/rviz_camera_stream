@@ -39,4 +39,19 @@
       output="screen"/>
   </group>
 
+  <group ns="rviz1/camera1/image">
+  <rosparam param="disable_pub_plugins">
+    - 'image_transport/compressed'
+    - 'image_transport/compressedDepth'
+    - 'image_transport/theora'
+  </rosparam>
+  </group>
+
+  <group ns="rviz1/camera2/image">
+  <rosparam param="disable_pub_plugins">
+    - 'image_transport/compressed'
+    - 'image_transport/compressedDepth'
+    - 'image_transport/theora'
+  </rosparam>
+  </group>
 </launch>
