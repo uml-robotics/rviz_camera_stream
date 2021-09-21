@@ -23,6 +23,7 @@ jobs:
             sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
             sudo apt-get update -qq
             sudo apt-get install dpkg
+            sudo apt-get install -y catkin-lint
             sudo apt-get install -y python3-catkin-pkg
             sudo apt-get install -y python3-catkin-tools
             sudo apt-get install -y python3-osrf-pycommon
@@ -32,32 +33,18 @@ jobs:
             sudo apt-get install -y libyaml-cpp-dev
             sudo apt-get install -y qt5-default
             sudo apt-get install -y ros-cmake-modules
-            # sudo apt-get install -y ros-$ROS_DISTRO-camera-info-manager
-            # sudo apt-get install -y ros-$ROS_DISTRO-cv-bridge
-            # sudo apt-get install -y ros-$ROS_DISTRO-dynamic-reconfigure
-            # sudo apt-get install -y ros-$ROS_DISTRO-ddynamic-reconfigure
-            sudo apt-get install -y ros-$ROS_DISTRO-image-transport
-            # sudo apt-get install -y ros-$ROS_DISTRO-nodelet-core
-            # sudo apt-get install -y ros-$ROS_DISTRO-pcl-conversions
-            # sudo apt-get install -y ros-$ROS_DISTRO-pcl-ros
-            sudo apt-get install -y ros-$ROS_DISTRO-pluginlib
-            sudo apt-get install -y ros-$ROS_DISTRO-roscpp
-            sudo apt-get install -y ros-$ROS_DISTRO-roslint
-            sudo apt-get install -y ros-$ROS_DISTRO-rospy
-            sudo apt-get install -y ros-$ROS_DISTRO-rostest
-            sudo apt-get install -y ros-$ROS_DISTRO-rviz
-            # sudo apt-get install -y ros-$ROS_DISTRO-shape-msgs
-            sudo apt-get install -y ros-$ROS_DISTRO-sensor-msgs
-            # sudo apt-get install -y ros-$ROS_DISTRO-tf2-geometry-msgs
-            # sudo apt-get install -y ros-$ROS_DISTRO-tf2-msgs
-            # sudo apt-get install -y ros-$ROS_DISTRO-tf2-py
-            # sudo apt-get install -y ros-$ROS_DISTRO-tf2-ros
-            # sudo apt-get install -y ros-$ROS_DISTRO-tf2-sensor-msgs
-            # sudo apt-get install -y ros-$ROS_DISTRO-visualization-msgs
+            sudo apt-get install -y ros-$ROS_DISTRO-ros-base
             source /opt/ros/$ROS_DISTRO/setup.bash
             # Prepare rosdep to install dependencies.
             sudo rosdep init
             rosdep update --include-eol-distros  # Support EOL distros.
+
+      - name: rosdep install additional ros dependencies
+        run: |
+            source /opt/ros/$ROS_DISTRO/setup.bash
+            cd catkin_ws
+            rosdep install --from-paths src --ignore-src -r -s  # do a dry-run first
+            rosdep install --from-paths src --ignore-src -r -y
 
       - name: build
         run: |
@@ -76,3 +63,4 @@ jobs:
         run: |
           cd ~/catkin_ws
           catkin build rviz_camera_stream --no-deps --catkin-make-args roslint
+          catkin_lint --pkg rviz_camera_stream -W2 --error unsorted_list --ignore uninstalled_script --error launch_depend --error description_meaningless
