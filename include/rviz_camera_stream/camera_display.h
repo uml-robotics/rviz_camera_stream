@@ -120,8 +120,8 @@ private:
 
   ros::ServiceServer trigger_service_;
   bool triggerCallback(std_srvs::TriggerRequest& req, std_srvs::TriggerResponse& res);
-  bool trigger_activated_;
-  ros::Time last_image_publication_time_;
+  bool trigger_activated_ = false;
+  ros::Time last_image_publication_time_ = ros::Time(0);
 
   void caminfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
 
@@ -146,15 +146,15 @@ private:
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
   boost::mutex caminfo_mutex_;
 
-  bool new_caminfo_;
+  bool new_caminfo_ = false;
 
-  bool caminfo_ok_;
+  bool caminfo_ok_ = false;
 
-  bool force_render_;
+  bool force_render_ = false;
 
   uint32_t vis_bit_;
 
-  video_export::VideoPublisher* video_publisher_;
+  video_export::VideoPublisher* video_publisher_ = nullptr;
 
   // render to texture
   // from http://www.ogre3d.org/tikiwiki/tiki-index.php?page=Intermediate+Tutorial+7

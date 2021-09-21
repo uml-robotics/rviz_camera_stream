@@ -14,6 +14,7 @@ roslint_cpp()
 # if(CMAKE_COMPILER_IS_GNUCXX)
 #  set(CMAKE_CXX_FLAGS "-std=c++0x")  ## Enable C++11
 # endif()
+set(CMAKE_CXX_FLAGS "-Wall -Werror")
 
 ## This plugin includes Qt widgets, so we must include Qt.
 ## We'll use the version that rviz used so they are compatible.

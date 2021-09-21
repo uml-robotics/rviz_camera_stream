@@ -208,12 +208,6 @@ CameraPub::CameraPub()
   : Display()
   , camera_trigger_name_("camera_trigger")
   , nh_()
-  , new_caminfo_(false)
-  , force_render_(false)
-  , trigger_activated_(false)
-  , last_image_publication_time_(0)
-  , caminfo_ok_(false)
-  , video_publisher_(0)
 {
   topic_property_ = new RosTopicProperty("Image Topic", "",
       QString::fromStdString(ros::message_traits::datatype<sensor_msgs::Image>()),
@@ -476,7 +470,7 @@ void CameraPub::updateDisplayNamespace()
   {
     nh_ = ros::NodeHandle(name);
   }
-  catch (ros::InvalidNameException e)
+  catch (ros::InvalidNameException& e)
   {
     setStatus(StatusProperty::Warn, "Display namespace", "Invalid namespace: " + QString(e.what()));
     ROS_ERROR("%s", e.what());
