@@ -16,7 +16,11 @@ jobs:
       PYTHONPATH: $PYTHONPATH:/usr/lib/python2.7/dist-packages:/usr/local/lib/python2.7/dist-packages
       ROS_DISTRO: noetic
     steps:
-      - uses: actions/checkout@v1
+      - name: git clone git@github.com:lucasw/rviz_camera_stream
+        uses: actions/checkout@v2
+        with:
+          path: catkin_ws/src/rviz_camera_stream
+
       - name: Install ROS
         run: |
             sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list"
@@ -49,18 +53,21 @@ jobs:
       - name: build
         run: |
           source /opt/ros/$ROS_DISTRO/setup.bash
-          mkdir -p ~/catkin_ws/src
-          cd ~/catkin_ws
-          catkin build
+          cd catkin_ws
+          catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release -Wno-deprecated
+          catkin build --no-status
           source devel/setup.bash
-          # echo "::warning $CI_SOURCE_PATH"
-          # echo "::warning `ls -l`"
-          cd src
-          ln -s ~/work  # $CI_SOURCE_PATH
-          cd ..
-          catkin build
+
       - name: lint
         run: |
-          cd ~/catkin_ws
-          catkin build rviz_camera_stream --no-deps --catkin-make-args roslint
+          cd catkin_ws
+          catkin build rviz_camera_stream --no-status --no-deps --catkin-make-args roslint
           catkin_lint --pkg rviz_camera_stream -W2 --error unsorted_list --ignore uninstalled_script --error launch_depend --error description_meaningless
+
+      - name: build install version
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          cd catkin_ws
+          catkin config --install --cmake-args -DCMAKE_BUILD_TYPE=Release -Wno-deprecated
+          catkin build --no-status
+          source install/setup.bash
