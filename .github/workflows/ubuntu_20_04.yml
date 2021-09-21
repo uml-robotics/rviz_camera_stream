@@ -61,6 +61,7 @@ jobs:
       - name: lint
         run: |
           cd catkin_ws
+          source devel/setup.bash
           catkin build rviz_camera_stream --no-status --no-deps --catkin-make-args roslint
           catkin_lint --pkg rviz_camera_stream -W2 --error unsorted_list --ignore uninstalled_script --error launch_depend --error description_meaningless
 
